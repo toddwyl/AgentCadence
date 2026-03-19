@@ -1,0 +1,88 @@
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import type {
+  Pipeline,
+  PipelineTemplate,
+  CLIProfile,
+  LLMConfig,
+  ExecutionNotificationSettings,
+} from '../../shared/types.js';
+import {
+  DEFAULT_CLI_PROFILE,
+  INTERNAL_CLI_PROFILE,
+  DEFAULT_LLM_CONFIG,
+  DEFAULT_NOTIFICATION_SETTINGS,
+} from '../../shared/types.js';
+
+const DATA_DIR = path.join(os.homedir(), '.agentflow');
+
+function ensureDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+function filePath(name: string): string {
+  ensureDir();
+  return path.join(DATA_DIR, name);
+}
+
+function readJSON<T>(name: string, fallback: T): T {
+  try {
+    const raw = fs.readFileSync(filePath(name), 'utf-8');
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJSON(name: string, data: unknown) {
+  ensureDir();
+  fs.writeFileSync(filePath(name), JSON.stringify(data, null, 2), 'utf-8');
+}
+
+export function loadPipelines(): Pipeline[] {
+  return readJSON<Pipeline[]>('pipelines.json', []);
+}
+
+export function savePipelines(pipelines: Pipeline[]) {
+  writeJSON('pipelines.json', pipelines);
+}
+
+export function loadProfile(): CLIProfile {
+  return readJSON<CLIProfile>('cli-profile.json', DEFAULT_CLI_PROFILE);
+}
+
+export function saveProfile(profile: CLIProfile) {
+  writeJSON('cli-profile.json', profile);
+}
+
+export function loadLLMConfig(): LLMConfig {
+  return readJSON<LLMConfig>('llm-config.json', DEFAULT_LLM_CONFIG);
+}
+
+export function saveLLMConfig(config: LLMConfig) {
+  writeJSON('llm-config.json', config);
+}
+
+
+export function loadNotificationSettings(): ExecutionNotificationSettings {
+  return readJSON<ExecutionNotificationSettings>('notification-settings.json', DEFAULT_NOTIFICATION_SETTINGS);
+}
+
+export function saveNotificationSettings(settings: ExecutionNotificationSettings) {
+  writeJSON('notification-settings.json', settings);
+}
+
+export function getProfileForToggle(useInternal: boolean): CLIProfile {
+  return useInternal ? INTERNAL_CLI_PROFILE : DEFAULT_CLI_PROFILE;
+}
+
+export function loadTemplates(): PipelineTemplate[] {
+  return readJSON<PipelineTemplate[]>('templates.json', []);
+}
+
+export function saveTemplates(templates: PipelineTemplate[]) {
+  writeJSON('templates.json', templates);
+}
