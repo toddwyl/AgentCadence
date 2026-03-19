@@ -19,9 +19,10 @@ router.get('/profile', (_req: Request, res: Response) => {
 });
 
 router.put('/profile', (req: Request, res: Response) => {
-  const { useInternal } = req.body as { useInternal?: boolean };
-  if (useInternal !== undefined) {
-    const profile = getProfileForToggle(useInternal);
+  const { useInternal, switchTo } = req.body as { useInternal?: boolean; switchTo?: string };
+  if (useInternal !== undefined || switchTo !== undefined) {
+    const isInternal = useInternal ?? switchTo === 'internal';
+    const profile = getProfileForToggle(isInternal);
     saveProfile(profile);
     res.json(profile);
   } else {

@@ -51,7 +51,11 @@ export function savePipelines(pipelines: Pipeline[]) {
 }
 
 export function loadProfile(): CLIProfile {
-  return readJSON<CLIProfile>('cli-profile.json', DEFAULT_CLI_PROFILE);
+  const data = readJSON<CLIProfile>('cli-profile.json', DEFAULT_CLI_PROFILE);
+  if (!data.cursor || !data.claude || !data.codex) {
+    return DEFAULT_CLI_PROFILE;
+  }
+  return data;
 }
 
 export function saveProfile(profile: CLIProfile) {

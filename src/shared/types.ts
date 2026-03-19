@@ -170,15 +170,24 @@ export interface ResolvedStep {
 
 export function resolveAllSteps(pipeline: Pipeline): ResolvedStep[] {
   const resolved: ResolvedStep[] = [];
+  let prevStageStepIDs: string[] = [];
+
   for (const stage of pipeline.stages) {
     for (let i = 0; i < stage.steps.length; i++) {
       const step = stage.steps[i];
       const deps = new Set(step.dependsOnStepIDs);
+
       if (stage.executionMode === 'sequential' && i > 0) {
         deps.add(stage.steps[i - 1].id);
       }
+
+      for (const prevID of prevStageStepIDs) {
+        deps.add(prevID);
+      }
+
       resolved.push({ step, allDependencies: deps, stageID: stage.id });
     }
+    prevStageStepIDs = stage.steps.map((s) => s.id);
   }
   return resolved;
 }

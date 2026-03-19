@@ -1,4 +1,7 @@
 import { spawn, ChildProcess, execSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 export interface CLIResult {
   exitCode: number;
@@ -31,6 +34,11 @@ const userShellPATH: string | null = (() => {
   }
 })();
 
+function getSearchPATH(): string {
+  const base = process.env.PATH || '';
+  return userShellPATH ? mergePaths(userShellPATH, base) : base;
+}
+
 function mergePaths(primary: string, secondary: string): string {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -43,14 +51,36 @@ function mergePaths(primary: string, secondary: string): string {
   return result.join(':');
 }
 
+function resolveExecutable(command: string): string {
+  if (path.isAbsolute(command)) return command;
+
+  const searchPath = getSearchPATH();
+  for (const dir of searchPath.split(':')) {
+    if (!dir) continue;
+    const candidate = path.join(dir, command);
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch { /* not found here */ }
+  }
+  return command;
+}
+
 function buildEnvironment(extra?: Record<string, string>): Record<string, string> {
   const env = { ...process.env } as Record<string, string>;
   if (userShellPATH) {
-    const currentPath = env.PATH || '';
-    env.PATH = mergePaths(userShellPATH, currentPath);
+    env.PATH = mergePaths(userShellPATH, env.PATH || '');
   }
   if (extra) Object.assign(env, extra);
   return env;
+}
+
+function killProcessTree(pid: number, signal: NodeJS.Signals = 'SIGTERM') {
+  try {
+    process.kill(-pid, signal);
+  } catch {
+    try { process.kill(pid, signal); } catch { /* already dead */ }
+  }
 }
 
 export interface RunOptions {
@@ -79,12 +109,19 @@ export class CLIRunner {
 
     return new Promise((resolve, reject) => {
       let proc: ChildProcess;
+      const resolvedCwd = workingDirectory
+        ? (workingDirectory.startsWith('~') ? path.join(os.homedir(), workingDirectory.slice(1)) : workingDirectory)
+        : process.cwd();
+
+      const resolvedCommand = resolveExecutable(command);
+
       try {
-        proc = spawn(command, args, {
-          cwd: workingDirectory || process.cwd(),
+        proc = spawn(resolvedCommand, args, {
+          cwd: resolvedCwd,
           env: buildEnvironment(environment),
           stdio: ['pipe', 'pipe', 'pipe'],
           shell: false,
+          detached: true,
         });
       } catch (err: unknown) {
         reject(new CLIError('PROCESS_ERROR', (err as Error).message));
@@ -115,23 +152,22 @@ export class CLIRunner {
         proc.stdin?.end();
       }
 
+      proc.unref();
+
+      const doKill = (reason: 'timeout' | 'cancelled') => {
+        if (killed) return;
+        killed = true;
+        killReason = reason;
+        if (proc.pid) killProcessTree(proc.pid);
+      };
+
       const timeoutMs = timeout * 1000;
-      const timer = setTimeout(() => {
-        if (!killed) {
-          killed = true;
-          killReason = 'timeout';
-          proc.kill('SIGTERM');
-        }
-      }, timeoutMs);
+      const timer = setTimeout(() => doKill('timeout'), timeoutMs);
 
       let pollTimer: ReturnType<typeof setInterval> | null = null;
       if (shouldTerminate) {
         pollTimer = setInterval(() => {
-          if (shouldTerminate() && !killed) {
-            killed = true;
-            killReason = 'cancelled';
-            proc.kill('SIGTERM');
-          }
+          if (shouldTerminate()) doKill('cancelled');
         }, 200);
       }
 
