@@ -8,6 +8,26 @@ export type ToolType = 'codex' | 'claude' | 'cursor';
 
 export const TOOL_TYPES: ToolType[] = ['codex', 'claude', 'cursor'];
 
+// MARK: - Prompt mentions (/, skills, slash commands, subagents)
+
+export type PromptMentionKind = 'skill' | 'command' | 'subagent';
+
+export interface PromptMentionItem {
+  id: string;
+  kind: PromptMentionKind;
+  /** Token after / in the prompt */
+  name: string;
+  description: string;
+  source: 'project' | 'user';
+  tool: ToolType | 'all';
+}
+
+export interface PromptMentionsResponse {
+  skills: PromptMentionItem[];
+  commands: PromptMentionItem[];
+  subagents: PromptMentionItem[];
+}
+
 export const TOOL_META: Record<ToolType, {
   displayName: string;
   defaultModels: string[];

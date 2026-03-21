@@ -1,3 +1,5 @@
+import type { PromptMentionsResponse } from '@shared/types';
+
 const BASE = '/api';
 
 export async function pickFolderRequest(): Promise<
@@ -90,8 +92,10 @@ export const api = {
   exportPipelineMd: (id: string) =>
     request<{ markdown: string }>(`/pipelines/${id}/export-md`),
 
-  getSkills: (workingDirectory: string) =>
-    request<any[]>(`/skills?workingDirectory=${encodeURIComponent(workingDirectory)}`),
+  getPromptMentions: (workingDirectory: string) =>
+    request<PromptMentionsResponse>(
+      `/prompt-mentions?workingDirectory=${encodeURIComponent(workingDirectory)}`
+    ),
 
   getTemplates: () => request<any[]>('/templates'),
   createTemplate: (name: string, description: string, stages: any[]) =>

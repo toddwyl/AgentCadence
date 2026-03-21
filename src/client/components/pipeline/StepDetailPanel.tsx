@@ -1,18 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { PipelineStep, ToolType, RetryRecord } from '@shared/types';
+import type { PipelineStep, ToolType, RetryRecord, PromptMentionItem, PromptMentionsResponse } from '@shared/types';
 import { TOOL_META, TOOL_TYPES } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
 
 type FailureMode = 'stop' | 'skip' | 'retry';
-
-interface SkillInfo {
-  id: string;
-  name: string;
-  description: string;
-  source: 'project' | 'user';
-  tool: string;
-}
 
 export function StepDetailPanel({ step, pipelineId, allSteps }: { step: PipelineStep; pipelineId: string; allSteps: PipelineStep[]; }) {
   const {
@@ -38,8 +30,8 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   const [retryCount, setRetryCount] = useState(step.retryCount ?? 3);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const [allSkills, setAllSkills] = useState<SkillInfo[]>([]);
-  const [skillsLoaded, setSkillsLoaded] = useState(false);
+  const [mentionData, setMentionData] = useState<PromptMentionsResponse | null>(null);
+  const [mentionsLoaded, setMentionsLoaded] = useState(false);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [skillFilter, setSkillFilter] = useState('');
   const [skillPickerIdx, setSkillPickerIdx] = useState(0);
@@ -56,17 +48,29 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
 
   useEffect(() => {
     if (pipeline?.workingDirectory) {
-      api.getSkills(pipeline.workingDirectory).then((data) => {
-        setAllSkills(data);
-        setSkillsLoaded(true);
-      }).catch(() => setSkillsLoaded(true));
+      api.getPromptMentions(pipeline.workingDirectory).then((data) => {
+        setMentionData(data);
+        setMentionsLoaded(true);
+      }).catch(() => setMentionsLoaded(true));
     }
   }, [pipeline?.workingDirectory]);
 
-  const toolSkills = useMemo(() =>
-    allSkills.filter((s) => s.tool === tool || s.tool === 'all'),
-    [allSkills, tool]
-  );
+  const matchesTool = (item: PromptMentionItem) => item.tool === tool || item.tool === 'all';
+
+  const allMentionsForTool = useMemo(() => {
+    if (!mentionData) return [];
+    return [
+      ...mentionData.skills.filter(matchesTool),
+      ...mentionData.commands.filter(matchesTool),
+      ...mentionData.subagents.filter(matchesTool),
+    ];
+  }, [mentionData, tool]);
+
+  const countMentionsForTool = (tt: ToolType) => {
+    if (!mentionData) return 0;
+    const m = (items: PromptMentionItem[]) => items.filter((i) => i.tool === tt || i.tool === 'all').length;
+    return m(mentionData.skills) + m(mentionData.commands) + m(mentionData.subagents);
+  };
 
   const save = () => {
     updateStep(pipelineId, step.id, { name, prompt, tool, command: command || undefined, model: model || undefined, failureMode, retryCount });
@@ -90,13 +94,14 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   ]);
   const liveRetryMax = stepRetryMaxAttempts[step.id];
 
-  const filteredSkills = useMemo(() =>
-    toolSkills.filter((s) => {
-      if (!skillFilter) return true;
-      const q = skillFilter.toLowerCase();
-      return s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q);
-    }),
-    [toolSkills, skillFilter]
+  const filteredMentions = useMemo(
+    () =>
+      allMentionsForTool.filter((item) => {
+        if (!skillFilter) return true;
+        const q = skillFilter.toLowerCase();
+        return item.name.toLowerCase().includes(q) || item.description.toLowerCase().includes(q);
+      }),
+    [allMentionsForTool, skillFilter]
   );
 
   const handlePromptChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -123,7 +128,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
     setShowSkillPicker(false);
   }, []);
 
-  const insertSkill = useCallback((skill: SkillInfo) => {
+  const insertMention = useCallback((item: PromptMentionItem) => {
     const slashPos = slashPosRef.current;
     if (slashPos < 0) return;
 
@@ -131,7 +136,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
     const cursorPos = ta?.selectionStart ?? prompt.length;
     const before = prompt.slice(0, slashPos);
     const after = prompt.slice(cursorPos);
-    const insertion = `/${skill.name} `;
+    const insertion = `/${item.name} `;
     const newPrompt = before + insertion + after;
     setPrompt(newPrompt);
     setShowSkillPicker(false);
@@ -147,22 +152,22 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   }, [prompt]);
 
   const handlePromptKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!showSkillPicker || filteredSkills.length === 0) return;
+    if (!showSkillPicker || filteredMentions.length === 0) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSkillPickerIdx((prev) => Math.min(prev + 1, filteredSkills.length - 1));
+      setSkillPickerIdx((prev) => Math.min(prev + 1, filteredMentions.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSkillPickerIdx((prev) => Math.max(prev - 1, 0));
     } else if (e.key === 'Enter' || e.key === 'Tab') {
       e.preventDefault();
-      insertSkill(filteredSkills[skillPickerIdx]);
+      insertMention(filteredMentions[skillPickerIdx]);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       setShowSkillPicker(false);
     }
-  }, [showSkillPicker, filteredSkills, skillPickerIdx, insertSkill]);
+  }, [showSkillPicker, filteredMentions, skillPickerIdx, insertMention]);
 
   return (
     <div className="w-[420px] flex flex-col animate-slide-in theme-bg-1" style={{ borderLeft: '1px solid var(--color-border)' }}>
@@ -186,7 +191,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
           <div className="grid grid-cols-3 gap-2">
             {TOOL_TYPES.map((tt) => {
               const m = TOOL_META[tt];
-              const skillCount = allSkills.filter((s) => s.tool === tt || s.tool === 'all').length;
+              const skillCount = countMentionsForTool(tt);
               return (
                 <button key={tt} onClick={() => setTool(tt)}
                   className={`p-2.5 rounded-lg text-center transition-all text-xs font-medium ${tool === tt ? 'theme-active-bg theme-text' : 'theme-text-tertiary theme-hover'}`}
@@ -206,7 +211,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
         <div className="relative">
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs theme-text-tertiary">{t.stepDetail.prompt}</label>
-            {toolSkills.length > 0 && (
+            {allMentionsForTool.length > 0 && (
               <span className="text-[10px] theme-text-muted">{t.stepDetail.promptHint}</span>
             )}
           </div>
@@ -220,29 +225,60 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
           />
 
           {showSkillPicker && (
-            <div className="absolute left-0 right-0 z-30 mt-1 max-h-[240px] overflow-y-auto rounded-lg shadow-lg theme-bg-1 animate-fade-in"
+            <div className="absolute left-0 right-0 z-30 mt-1 max-h-[280px] overflow-y-auto rounded-lg shadow-lg theme-bg-1 animate-fade-in"
               style={{ border: '1px solid var(--color-border)' }}>
-              {!skillsLoaded ? (
+              {!mentionsLoaded ? (
                 <div className="p-3 text-xs theme-text-muted text-center">{t.stepDetail.loadingSkills}</div>
-              ) : filteredSkills.length === 0 ? (
-                <div className="p-3 text-xs theme-text-muted text-center">{t.stepDetail.noSkills}</div>
-              ) : filteredSkills.map((skill, i) => (
-                <div
-                  key={skill.id}
-                  className={`px-3 py-2 cursor-pointer transition-colors ${i === skillPickerIdx ? 'theme-active-bg' : 'theme-hover'}`}
-                  onMouseDown={(e) => { e.preventDefault(); insertSkill(skill); }}
-                  onMouseEnter={() => setSkillPickerIdx(i)}>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${skill.source === 'project' ? 'bg-blue-500/10 text-blue-500' : 'bg-green-500/10 text-green-500'}`}>
-                      {skill.source === 'project' ? t.stepDetail.skillProject : t.stepDetail.skillUser}
-                    </span>
-                    <span className="text-xs font-medium theme-text font-mono">/{skill.name}</span>
+              ) : filteredMentions.length === 0 ? (
+                <div className="p-3 text-xs theme-text-muted text-center">{t.stepDetail.noMentions}</div>
+              ) : (
+                filteredMentions.map((item, i) => (
+                  <div key={item.id}>
+                    {(i === 0 || filteredMentions[i - 1].kind !== item.kind) && (
+                      <div className="px-2 py-1.5 text-[10px] font-semibold theme-text-muted uppercase tracking-wide theme-bg-0 sticky top-0">
+                        {item.kind === 'skill'
+                          ? t.stepDetail.mentionSkills
+                          : item.kind === 'command'
+                            ? t.stepDetail.mentionCommands
+                            : t.stepDetail.mentionSubagents}
+                      </div>
+                    )}
+                    <div
+                      className={`px-3 py-2 cursor-pointer transition-colors ${i === skillPickerIdx ? 'theme-active-bg' : 'theme-hover'}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertMention(item);
+                      }}
+                      onMouseEnter={() => setSkillPickerIdx(i)}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                            item.kind === 'skill'
+                              ? 'bg-violet-500/15 text-violet-400'
+                              : item.kind === 'command'
+                                ? 'bg-emerald-500/15 text-emerald-400'
+                                : 'bg-amber-500/15 text-amber-400'
+                          }`}
+                        >
+                          {item.kind === 'skill'
+                            ? t.stepDetail.badgeSkill
+                            : item.kind === 'command'
+                              ? t.stepDetail.badgeCommand
+                              : t.stepDetail.badgeSubagent}
+                        </span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${item.source === 'project' ? 'bg-blue-500/10 text-blue-500' : 'bg-green-500/10 text-green-500'}`}>
+                          {item.source === 'project' ? t.stepDetail.skillProject : t.stepDetail.skillUser}
+                        </span>
+                        <span className="text-xs font-medium theme-text font-mono">/{item.name}</span>
+                      </div>
+                      {item.description && (
+                        <p className="text-[10px] theme-text-muted mt-0.5 line-clamp-2">{item.description}</p>
+                      )}
+                    </div>
                   </div>
-                  {skill.description && (
-                    <p className="text-[10px] theme-text-muted mt-0.5 line-clamp-2">{skill.description}</p>
-                  )}
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
         </div>
