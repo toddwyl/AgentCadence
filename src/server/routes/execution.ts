@@ -10,6 +10,7 @@ import type {
   RetryRecord,
 } from '../../shared/types.js';
 import { DAGScheduler, ExecutionControl, SchedulerError } from '../services/dag-scheduler.js';
+import { stepResultDisplayOutput } from '../services/tool-runner.js';
 import { loadPipelines, savePipelines, loadProfile } from '../services/store.js';
 import { broadcast } from '../ws.js';
 
@@ -113,6 +114,7 @@ async function runPipeline(pipeline: Pipeline) {
       if (result.retryRecords || result.totalAttempts) {
         updateRunRecordRetry(runRecord, result.stepID, result.retryRecords, result.totalAttempts);
       }
+      updateRunRecordStepOutput(runRecord, result.stepID, stepResultDisplayOutput(result));
     }
   } catch (err) {
     if (err instanceof SchedulerError) {
@@ -120,6 +122,9 @@ async function runPipeline(pipeline: Pipeline) {
       finalError = err.message;
       if (err.failedResult?.retryRecords || err.failedResult?.totalAttempts) {
         updateRunRecordRetry(runRecord, err.failedResult.stepID, err.failedResult.retryRecords, err.failedResult.totalAttempts);
+      }
+      if (err.failedResult) {
+        updateRunRecordStepOutput(runRecord, err.failedResult.stepID, stepResultDisplayOutput(err.failedResult));
       }
     } else {
       finalStatus = 'failed';
@@ -147,6 +152,17 @@ async function runPipeline(pipeline: Pipeline) {
     type: 'pipeline_run_finished',
     payload: { pipelineID: pipeline.id, runID: runRecord.id, status: finalStatus, error: finalError },
   });
+}
+
+function updateRunRecordStepOutput(runRecord: PipelineRunRecord, stepID: string, output: string) {
+  for (const sr of runRecord.stageRuns) {
+    for (const stepRun of sr.stepRuns) {
+      if (stepRun.stepID === stepID) {
+        stepRun.output = output;
+        return;
+      }
+    }
+  }
 }
 
 function updateRunRecordStep(runRecord: PipelineRunRecord, stepID: string, status: StepStatus) {

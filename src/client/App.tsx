@@ -64,7 +64,7 @@ export default function App() {
           {pipeline ? (
             store.showFlowchart ? (
               <FlowchartView pipeline={pipeline} />
-            ) : store.isExecuting && store.executingPipelineID === pipeline.id ? (
+            ) : store.showMonitor || (store.isExecuting && store.executingPipelineID === pipeline.id) ? (
               <ExecutionMonitor pipeline={pipeline} />
             ) : (
               <PipelineEditor pipeline={pipeline} />

@@ -35,6 +35,8 @@ interface AppState {
   executingPipelineID: string | null;
   executionError: string | null;
   showFlowchart: boolean;
+  /** Execution monitor (live run + run history); auto-opens when a run starts */
+  showMonitor: boolean;
   isPlanningInProgress: boolean;
   planningError: string | null;
   planningPhase: PlanningPhase | null;
@@ -89,6 +91,7 @@ interface AppState {
   refreshPipelines: () => Promise<void>;
 
   toggleFlowchart: () => void;
+  toggleMonitor: () => void;
   setShowSettings: (v: boolean) => void;
   setShowAutoPlanner: (v: boolean) => void;
   setShowAnalytics: (v: boolean) => void;
@@ -109,6 +112,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   executingPipelineID: null,
   executionError: null,
   showFlowchart: false,
+  showMonitor: false,
   isPlanningInProgress: false,
   planningError: null,
   planningPhase: null,
@@ -178,7 +182,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  selectPipeline: (id) => set({ selectedPipelineID: id, selectedStepID: null }),
+  selectPipeline: (id) => set({ selectedPipelineID: id, selectedStepID: null, showMonitor: false }),
   selectStep: (id) => set({ selectedStepID: id }),
 
   createPipeline: async (name, workingDirectory, templateId) => {
@@ -252,6 +256,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       stepOutputs: {},
       stepRetryRecords: {},
       stepRetryMaxAttempts: {},
+      showMonitor: true,
+      showFlowchart: false,
     });
     await api.runPipeline(id, 'pipeline');
   },
@@ -340,7 +346,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ pipelines });
   },
 
-  toggleFlowchart: () => set((s) => ({ showFlowchart: !s.showFlowchart })),
+  toggleFlowchart: () => set((s) => ({ showFlowchart: !s.showFlowchart, showMonitor: false })),
+  toggleMonitor: () => set((s) => ({ showMonitor: !s.showMonitor, showFlowchart: false })),
   setShowSettings: (v) => set({ showSettings: v }),
   setShowAutoPlanner: (v) => set({ showAutoPlanner: v }),
   setShowAnalytics: (v) => set({ showAnalytics: v }),

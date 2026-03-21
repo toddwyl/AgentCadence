@@ -1,7 +1,11 @@
-import { useRef, useEffect } from 'react';
-import type { Pipeline, StepStatus } from '@shared/types';
+import { useRef, useEffect, useMemo, useState } from 'react';
+import type { Pipeline, PipelineRunRecord, StepStatus } from '@shared/types';
 import { safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
+
+type OutputRef =
+  | { kind: 'live'; stepId: string }
+  | { kind: 'record'; runId: string; stepId: string };
 
 export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
   const {
@@ -11,11 +15,54 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     stepRetryMaxAttempts,
     isExecuting,
     executingPipelineID,
-    selectedStepID,
     selectStep,
     executionError,
     t,
   } = useAppStore();
+
+  const live = isExecuting && executingPipelineID === pipeline.id;
+  const [tab, setTab] = useState<'running' | 'history'>(() => (live ? 'running' : 'history'));
+  const [outputRef, setOutputRef] = useState<OutputRef | null>(null);
+
+  const sortedRuns = useMemo(
+    () =>
+      [...(pipeline.runHistory ?? [])].sort((a, b) =>
+        a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0
+      ),
+    [pipeline.runHistory]
+  );
+  const latestRun = sortedRuns[0];
+
+  useEffect(() => {
+    if (live) {
+      setTab('running');
+      setOutputRef(null);
+    }
+  }, [live]);
+
+  const resolveOutput = (): string | null => {
+    if (!outputRef) return null;
+    if (outputRef.kind === 'live') return stepOutputs[outputRef.stepId] ?? null;
+    const run = pipeline.runHistory.find((r) => r.id === outputRef.runId);
+    if (!run) return null;
+    for (const sr of run.stageRuns) {
+      for (const st of sr.stepRuns) {
+        if (st.stepID === outputRef.stepId) return st.output ?? null;
+      }
+    }
+    return null;
+  };
+
+  const handleLiveStepClick = (stepId: string) => {
+    setOutputRef({ kind: 'live', stepId });
+    selectStep(stepId);
+  };
+
+  const handleRecordStepClick = (runId: string, stepId: string) => {
+    setOutputRef({ kind: 'record', runId, stepId });
+    selectStep(stepId);
+  };
+
   const allSteps = (pipeline.stages ?? []).flatMap((s) => s.steps ?? []);
   const completedCount = allSteps.filter((s) => stepStatuses[s.id] === 'completed').length;
   const failedCount = allSteps.filter((s) => stepStatuses[s.id] === 'failed').length;
@@ -23,79 +70,344 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
   const runningCount = allSteps.filter((s) => stepStatuses[s.id] === 'running').length;
   const doneCount = completedCount + failedCount + skippedCount;
   const progress = allSteps.length > 0 ? doneCount / allSteps.length : 0;
-  const selectedOutput = selectedStepID ? stepOutputs[selectedStepID] : null;
+
+  const selectedOutput = resolveOutput();
+  const headerStepName = outputRef
+    ? allSteps.find((s) => s.id === outputRef.stepId)?.name
+    : null;
 
   return (
-    <div className="flex h-full">
-      <div className="w-80 flex flex-col" style={{ borderRight: '1px solid var(--color-border)' }}>
-        <div className="p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium theme-text-secondary">{t.execution.pipelineMode}</span>
-            <span className="text-xs theme-text-muted">{completedCount}/{allSteps.length} {t.execution.completed}</span>
-          </div>
-          <div className="h-1.5 theme-bg-0 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-accent-primary to-accent-secondary" style={{ width: `${progress * 100}%` }} /></div>
-          <div className="flex gap-3 mt-2 text-[10px]">
-            {runningCount > 0 && <span className="flex items-center gap-1 text-status-running"><span className="status-dot bg-status-running animate-pulse" />{runningCount} {t.execution.running}</span>}
-            {failedCount > 0 && <span className="flex items-center gap-1 text-status-failed"><span className="status-dot bg-status-failed" />{failedCount} {t.execution.failed}</span>}
-            {skippedCount > 0 && <span className="flex items-center gap-1 text-status-skipped"><span className="status-dot bg-status-skipped" />{skippedCount} {t.status.skipped}</span>}
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          {(pipeline.stages ?? []).map((stage) => (
-            <div key={stage.id}>
-              <div className="px-4 py-2 text-[10px] font-medium theme-text-muted uppercase tracking-wider theme-bg-0" style={{ opacity: 0.7 }}>{stage.name}</div>
-              {(stage.steps ?? []).map((step) => {
-                const status = stepStatuses[step.id] || step.status;
-                const meta = safeToolMeta(step.tool);
-                return (
-                  <div key={step.id} onClick={() => selectStep(step.id)}
-                    className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all ${selectedStepID === step.id ? 'theme-active-bg' : 'theme-hover'}`}>
-                    <StatusIcon status={status} />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs theme-text-secondary truncate">{step.name}</div>
-                      {isExecuting &&
-                        executingPipelineID === pipeline.id &&
-                        status === 'running' &&
-                        stepRetryMaxAttempts[step.id] &&
-                        (stepRetryRecords[step.id]?.length ?? 0) > 0 && (
-                        <div className="text-[9px] text-amber-500 mt-0.5 truncate">
-                          {t.stepDetail.retryInfo
-                            .replace('{current}', String(stepRetryRecords[step.id]?.length ?? 0))
-                            .replace('{total}', String(stepRetryMaxAttempts[step.id]))}
-                        </div>
+    <div className="flex h-full flex-col">
+      <div className="flex px-4 pt-3 pb-2 gap-2 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        <button
+          type="button"
+          onClick={() => setTab('running')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            tab === 'running' ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
+          }`}
+        >
+          {t.execution.runningTab}
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('history')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            tab === 'history' ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
+          }`}
+        >
+          {t.execution.historyTab}
+        </button>
+      </div>
+
+      <div className="flex flex-1 min-h-0">
+        <div className="w-80 flex flex-col" style={{ borderRight: '1px solid var(--color-border)' }}>
+          {tab === 'running' ? (
+            <>
+              <div className="p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium theme-text-secondary">{t.execution.pipelineMode}</span>
+                  <span className="text-xs theme-text-muted">
+                    {live
+                      ? `${completedCount}/${allSteps.length} ${t.execution.completed}`
+                      :                     latestRun
+                        ? latestRun.status.charAt(0).toUpperCase() + latestRun.status.slice(1)
+                        : '—'}
+                  </span>
+                </div>
+                {live && (
+                  <>
+                    <div className="h-1.5 theme-bg-0 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-accent-primary to-accent-secondary"
+                        style={{ width: `${progress * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex gap-3 mt-2 text-[10px]">
+                      {runningCount > 0 && (
+                        <span className="flex items-center gap-1 text-status-running">
+                          <span className="status-dot bg-status-running animate-pulse" />
+                          {runningCount} {t.execution.running}
+                        </span>
+                      )}
+                      {failedCount > 0 && (
+                        <span className="flex items-center gap-1 text-status-failed">
+                          <span className="status-dot bg-status-failed" />
+                          {failedCount} {t.execution.failed}
+                        </span>
+                      )}
+                      {skippedCount > 0 && (
+                        <span className="flex items-center gap-1 text-status-skipped">
+                          <span className="status-dot bg-status-skipped" />
+                          {skippedCount} {t.status.skipped}
+                        </span>
                       )}
                     </div>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ backgroundColor: meta.tintColor + '12', color: meta.tintColor }}>{meta.displayName}</span>
+                  </>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {live ? (
+                  (pipeline.stages ?? []).map((stage) => (
+                    <div key={stage.id}>
+                      <div
+                        className="px-4 py-2 text-[10px] font-medium theme-text-muted uppercase tracking-wider theme-bg-0"
+                        style={{ opacity: 0.7 }}
+                      >
+                        {stage.name}
+                      </div>
+                      {(stage.steps ?? []).map((step) => {
+                        const status = stepStatuses[step.id] || step.status;
+                        const meta = safeToolMeta(step.tool);
+                        const sel = outputRef?.kind === 'live' && outputRef.stepId === step.id;
+                        return (
+                          <div
+                            key={step.id}
+                            onClick={() => handleLiveStepClick(step.id)}
+                            className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all ${
+                              sel ? 'theme-active-bg' : 'theme-hover'
+                            }`}
+                          >
+                            <StatusIcon status={status} />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs theme-text-secondary truncate">{step.name}</div>
+                              {stepRetryMaxAttempts[step.id] &&
+                                (stepRetryRecords[step.id]?.length ?? 0) > 0 && (
+                                  <div className="text-[9px] text-amber-500 mt-0.5 truncate">
+                                    {t.stepDetail.retryInfo
+                                      .replace('{current}', String(stepRetryRecords[step.id]?.length ?? 0))
+                                      .replace('{total}', String(stepRetryMaxAttempts[step.id]))}
+                                  </div>
+                                )}
+                            </div>
+                            <span
+                              className="text-[9px] px-1.5 py-0.5 rounded"
+                              style={{ backgroundColor: meta.tintColor + '12', color: meta.tintColor }}
+                            >
+                              {meta.displayName}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))
+                ) : latestRun ? (
+                  <RunRecordStepList
+                    pipeline={pipeline}
+                    run={latestRun}
+                    selectedRef={outputRef}
+                    onStepClick={(stepId) => handleRecordStepClick(latestRun.id, stepId)}
+                  />
+                ) : (
+                  <div className="p-6 text-center">
+                    <p className="text-sm theme-text-secondary mb-1">{t.execution.noLatestRun}</p>
+                    <p className="text-xs theme-text-muted">{t.execution.noLatestRunDesc}</p>
                   </div>
-                );
-              })}
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {sortedRuns.length === 0 ? (
+                <div className="p-6 text-center">
+                  <p className="text-sm theme-text-secondary mb-1">{t.execution.noRunHistory}</p>
+                  <p className="text-xs theme-text-muted">{t.execution.noRunHistoryDesc}</p>
+                </div>
+              ) : (
+                sortedRuns.map((run) => (
+                  <div key={run.id} className="glass-panel rounded-xl overflow-hidden">
+                    <div className="px-3 py-2 flex flex-wrap items-center gap-2" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                      <span className="text-[10px] font-medium theme-text-secondary">{formatRunTime(run.startedAt)}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${runStatusClass(run.status)}`}>
+                        {run.status}
+                      </span>
+                      {run.durationMs != null && (
+                        <span className="text-[10px] theme-text-muted">
+                          {t.execution.duration}: {formatDuration(run.durationMs)}
+                        </span>
+                      )}
+                      {run.errorMessage && (
+                        <span className="text-[10px] text-red-400/80 truncate max-w-full">{run.errorMessage}</span>
+                      )}
+                    </div>
+                    <RunRecordStepList
+                      pipeline={pipeline}
+                      run={run}
+                      selectedRef={outputRef}
+                      onStepClick={(stepId) => handleRecordStepClick(run.id, stepId)}
+                    />
+                  </div>
+                ))
+              )}
             </div>
-          ))}
+          )}
+          {executionError && tab === 'running' && live && (
+            <div className="p-3 bg-red-500/[0.05]" style={{ borderTop: '1px solid rgba(239,68,68,0.2)' }}>
+              <p className="text-xs text-red-500">{executionError}</p>
+            </div>
+          )}
         </div>
-        {executionError && <div className="p-3 bg-red-500/[0.05]" style={{ borderTop: '1px solid rgba(239,68,68,0.2)' }}><p className="text-xs text-red-500">{executionError}</p></div>}
-      </div>
-      <div className="flex-1 flex flex-col">
-        <div className="px-5 py-3 flex items-center gap-2" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <svg className="w-4 h-4 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>
-          <span className="text-xs theme-text-tertiary">{selectedStepID ? allSteps.find((s) => s.id === selectedStepID)?.name || 'Output' : t.execution.selectStep}</span>
+
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="px-5 py-3 flex items-center gap-2 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <svg className="w-4 h-4 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"
+              />
+            </svg>
+            <span className="text-xs theme-text-tertiary">
+              {headerStepName || t.execution.selectStep}
+            </span>
+            {outputRef?.kind === 'record' && (
+              <span className="text-[10px] theme-text-muted ml-auto">{t.execution.outputFromHistory}</span>
+            )}
+          </div>
+          <OutputPane
+            output={selectedOutput}
+            noOutputText={
+              outputRef?.kind === 'record' && !selectedOutput ? t.execution.noSavedOutput : t.execution.noOutput
+            }
+          />
         </div>
-        <OutputPane output={selectedOutput} noOutputText={t.execution.noOutput} />
       </div>
     </div>
   );
 }
 
+function RunRecordStepList({
+  pipeline,
+  run,
+  selectedRef,
+  onStepClick,
+}: {
+  pipeline: Pipeline;
+  run: PipelineRunRecord;
+  selectedRef: OutputRef | null;
+  onStepClick: (stepId: string) => void;
+}) {
+  return (
+    <>
+      {run.stageRuns.map((sr) => (
+        <div key={sr.id}>
+          <div
+            className="px-3 py-1.5 text-[10px] font-medium theme-text-muted uppercase tracking-wider theme-bg-0"
+            style={{ opacity: 0.7 }}
+          >
+            {sr.stageName}
+          </div>
+          {sr.stepRuns.map((st) => {
+            const pStep = findPipelineStep(pipeline, st.stepID);
+            const meta = pStep ? safeToolMeta(pStep.tool) : safeToolMeta(undefined);
+            const sel =
+              selectedRef?.kind === 'record' &&
+              selectedRef.runId === run.id &&
+              selectedRef.stepId === st.stepID;
+            return (
+              <div
+                key={st.id}
+                onClick={() => onStepClick(st.stepID)}
+                className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-all ${
+                  sel ? 'theme-active-bg' : 'theme-hover'
+                }`}
+              >
+                <StatusIcon status={st.status} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs theme-text-secondary truncate">{st.stepName}</div>
+                </div>
+                <span
+                  className="text-[9px] px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: meta.tintColor + '12', color: meta.tintColor }}
+                >
+                  {meta.displayName}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function findPipelineStep(pipeline: Pipeline, stepId: string) {
+  for (const st of pipeline.stages ?? []) {
+    const f = (st.steps ?? []).find((s) => s.id === stepId);
+    if (f) return f;
+  }
+  return undefined;
+}
+
+function formatRunTime(iso: string) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return iso;
+  }
+}
+
+function formatDuration(ms: number) {
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  return `${m}m ${rs}s`;
+}
+
+function runStatusClass(status: PipelineRunRecord['status']) {
+  if (status === 'completed') return 'bg-emerald-500/15 text-emerald-500';
+  if (status === 'failed') return 'bg-red-500/15 text-red-400';
+  if (status === 'cancelled') return 'bg-amber-500/15 text-amber-400';
+  return 'bg-slate-500/15 theme-text-muted';
+}
+
 function OutputPane({ output, noOutputText }: { output: string | null; noOutputText: string }) {
   const bottomRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [output]);
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [output]);
   if (!output) return <div className="flex-1 flex items-center justify-center theme-text-muted text-sm">{noOutputText}</div>;
-  return <pre className="flex-1 overflow-auto p-5 text-xs font-mono theme-text-secondary leading-relaxed whitespace-pre-wrap break-all">{output}<div ref={bottomRef} /></pre>;
+  const capped = output.length > 80000 ? output.slice(0, 80000) + '\n\n…' : output;
+  return (
+    <pre className="flex-1 overflow-auto p-5 text-xs font-mono theme-text-secondary leading-relaxed whitespace-pre-wrap break-all">
+      {capped}
+      <div ref={bottomRef} />
+    </pre>
+  );
 }
 
 function StatusIcon({ status }: { status: StepStatus | string }) {
-  if (status === 'running') return <div className="w-5 h-5 flex items-center justify-center"><div className="w-3.5 h-3.5 border-2 border-status-running border-t-transparent rounded-full animate-spin" /></div>;
-  if (status === 'completed') return <div className="w-5 h-5 rounded-full bg-status-completed/20 flex items-center justify-center"><svg className="w-3 h-3 text-status-completed" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg></div>;
-  if (status === 'failed') return <div className="w-5 h-5 rounded-full bg-status-failed/20 flex items-center justify-center"><svg className="w-3 h-3 text-status-failed" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg></div>;
-  if (status === 'skipped') return <div className="w-5 h-5 rounded-full bg-status-skipped/20 flex items-center justify-center"><svg className="w-3 h-3 text-status-skipped" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8.689c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.69z" /></svg></div>;
+  if (status === 'running')
+    return (
+      <div className="w-5 h-5 flex items-center justify-center">
+        <div className="w-3.5 h-3.5 border-2 border-status-running border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  if (status === 'completed')
+    return (
+      <div className="w-5 h-5 rounded-full bg-status-completed/20 flex items-center justify-center">
+        <svg className="w-3 h-3 text-status-completed" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      </div>
+    );
+  if (status === 'failed')
+    return (
+      <div className="w-5 h-5 rounded-full bg-status-failed/20 flex items-center justify-center">
+        <svg className="w-3 h-3 text-status-failed" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+    );
+  if (status === 'skipped')
+    return (
+      <div className="w-5 h-5 rounded-full bg-status-skipped/20 flex items-center justify-center">
+        <svg className="w-3 h-3 text-status-skipped" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.689c0-.864.933-1.405 1.683-.977l7.108 4.062a1.125 1.125 0 010 1.953l-7.108 4.062A1.125 1.125 0 013 16.81V8.69z" />
+        </svg>
+      </div>
+    );
   return <div className="w-5 h-5 rounded-full theme-bg-3" style={{ border: '1px solid var(--color-border)' }} />;
 }
