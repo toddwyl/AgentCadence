@@ -6,11 +6,9 @@ import {
   saveLLMConfig,
   loadNotificationSettings,
   saveNotificationSettings,
-  getProfileForToggle,
 } from '../services/store.js';
 import { CLIRunner } from '../services/cli-runner.js';
 import type { DetectionResult, CLIProfile } from '../../shared/types.js';
-import { DEFAULT_CLI_PROFILE, INTERNAL_CLI_PROFILE } from '../../shared/types.js';
 
 const router = Router();
 
@@ -19,17 +17,9 @@ router.get('/profile', (_req: Request, res: Response) => {
 });
 
 router.put('/profile', (req: Request, res: Response) => {
-  const { useInternal, switchTo } = req.body as { useInternal?: boolean; switchTo?: string };
-  if (useInternal !== undefined || switchTo !== undefined) {
-    const isInternal = useInternal ?? switchTo === 'internal';
-    const profile = getProfileForToggle(isInternal);
-    saveProfile(profile);
-    res.json(profile);
-  } else {
-    const profile = req.body as CLIProfile;
-    saveProfile(profile);
-    res.json(profile);
-  }
+  const profile = req.body as CLIProfile;
+  saveProfile(profile);
+  res.json(profile);
 });
 
 router.get('/llm-config', (_req: Request, res: Response) => {
@@ -51,11 +41,7 @@ router.put('/notification-settings', (req: Request, res: Response) => {
 });
 
 router.get('/detect', async (_req: Request, res: Response) => {
-  const profile = loadProfile();
-  const useInternal = profile.id === 'internal';
-  const executables = useInternal
-    ? ['cursor-agent', 'codex-internal', 'claude-internal']
-    : ['cursor-agent', 'codex', 'claude'];
+  const executables = ['cursor-agent', 'codex', 'claude'];
 
   const cli = new CLIRunner();
   const results: DetectionResult[] = [];

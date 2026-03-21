@@ -115,9 +115,8 @@ export const zh = {
   },
   settings: {
     title: '设置',
-    cliProfile: 'CLI 配置',
-    openSource: '开源版',
-    internal: '内部版',
+    cliProfile: '命令行',
+    cliProfileHint: '默认使用 cursor-agent、codex、claude。检测可在本机解析其安装路径。',
     detectEnv: '检测环境',
     detecting: '检测中...',
     notFound: '未找到',

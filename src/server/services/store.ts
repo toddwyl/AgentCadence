@@ -10,7 +10,6 @@ import type {
 } from '../../shared/types.js';
 import {
   DEFAULT_CLI_PROFILE,
-  INTERNAL_CLI_PROFILE,
   DEFAULT_LLM_CONFIG,
   DEFAULT_NOTIFICATION_SETTINGS,
 } from '../../shared/types.js';
@@ -55,6 +54,10 @@ export function loadProfile(): CLIProfile {
   if (!data.cursor || !data.claude || !data.codex) {
     return DEFAULT_CLI_PROFILE;
   }
+  if (data.id === 'internal') {
+    saveProfile(DEFAULT_CLI_PROFILE);
+    return DEFAULT_CLI_PROFILE;
+  }
   return data;
 }
 
@@ -77,10 +80,6 @@ export function loadNotificationSettings(): ExecutionNotificationSettings {
 
 export function saveNotificationSettings(settings: ExecutionNotificationSettings) {
   writeJSON('notification-settings.json', settings);
-}
-
-export function getProfileForToggle(useInternal: boolean): CLIProfile {
-  return useInternal ? INTERNAL_CLI_PROFILE : DEFAULT_CLI_PROFILE;
 }
 
 export function loadTemplates(): PipelineTemplate[] {

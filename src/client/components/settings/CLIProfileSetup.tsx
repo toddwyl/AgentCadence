@@ -1,26 +1,27 @@
 import { useState, useEffect } from 'react';
-import type { CLIProfile, LLMConfig } from '@shared/types';
+import type { LLMConfig, DetectionResult } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
 
 export function CLIProfileSetup() {
-  const { setShowSettings, profile, llmConfig, t, theme, setTheme, locale, setLocale } = useAppStore();
-  const [activeProfile, setActiveProfile] = useState<CLIProfile | null>(profile);
+  const { setShowSettings, llmConfig, t, theme, setTheme, locale, setLocale } = useAppStore();
   const [detecting, setDetecting] = useState(false);
-  const [detectResult, setDetectResult] = useState<Record<string, string> | null>(null);
+  const [detectRows, setDetectRows] = useState<DetectionResult[] | null>(null);
+  const [detectError, setDetectError] = useState<string | null>(null);
   const [llm, setLlm] = useState<LLMConfig>(llmConfig);
-
-  useEffect(() => { setActiveProfile(profile); }, [profile]);
-
-  const switchProfile = async (name: string) => {
-    const p = await api.updateProfile({ switchTo: name });
-    setActiveProfile(p);
-    useAppStore.setState({ profile: p });
-  };
 
   const detect = async () => {
     setDetecting(true);
-    try { const r = await api.detectEnvironment(); setDetectResult(r as unknown as Record<string, string>); } finally { setDetecting(false); }
+    setDetectError(null);
+    try {
+      const r = await api.detectEnvironment();
+      setDetectRows(Array.isArray(r) ? r : []);
+    } catch (e) {
+      setDetectRows(null);
+      setDetectError((e as Error).message || 'Detect failed');
+    } finally {
+      setDetecting(false);
+    }
   };
 
   const saveLLM = async () => {
@@ -61,21 +62,26 @@ export function CLIProfileSetup() {
             </div>
           </section>
 
-          {/* CLI Profile */}
+          {/* CLI detection (default profile: cursor-agent / codex / claude) */}
           <section>
-            <h3 className="text-xs font-medium theme-text-secondary mb-3">{t.settings.cliProfile}</h3>
-            <div className="flex gap-2 mb-4">
-              <button onClick={() => switchProfile('open_source')} className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${activeProfile?.name === 'Open Source' ? 'bg-accent-primary/20 text-accent-glow' : 'theme-text-tertiary theme-hover'}`} style={{ border: '1px solid var(--color-border)' }}>{t.settings.openSource}</button>
-              <button onClick={() => switchProfile('internal')} className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${activeProfile?.name === 'Internal' ? 'bg-accent-primary/20 text-accent-glow' : 'theme-text-tertiary theme-hover'}`} style={{ border: '1px solid var(--color-border)' }}>{t.settings.internal}</button>
-            </div>
-            <button onClick={detect} disabled={detecting} className="text-xs theme-text-tertiary hover:theme-text-secondary flex items-center gap-1.5">
+            <h3 className="text-xs font-medium theme-text-secondary mb-1">{t.settings.cliProfile}</h3>
+            <p className="text-[10px] theme-text-muted mb-3">{t.settings.cliProfileHint}</p>
+            <button type="button" onClick={detect} disabled={detecting} className="text-xs theme-text-tertiary hover:theme-text-secondary flex items-center gap-1.5">
               {detecting ? <><div className="w-3 h-3 border-2 border-accent-glow/30 border-t-accent-glow rounded-full animate-spin" />{t.settings.detecting}</>
               : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>{t.settings.detectEnv}</>}
             </button>
-            {detectResult && (
-              <div className="mt-3 space-y-1.5 animate-fade-in">{Object.entries(detectResult).map(([tool, path]) => (
-                <div key={tool} className="flex items-center gap-2 text-xs"><span className="theme-text-tertiary w-16 capitalize">{tool}</span><span className={`font-mono text-[10px] ${path ? 'text-status-completed' : 'text-status-failed'}`}>{path || t.settings.notFound}</span></div>
-              ))}</div>
+            {detectError && <p className="mt-2 text-xs text-red-400/90">{detectError}</p>}
+            {detectRows && detectRows.length > 0 && (
+              <div className="mt-3 space-y-1.5 animate-fade-in">
+                {detectRows.map((row) => (
+                  <div key={row.executable} className="flex items-center gap-2 text-xs min-w-0">
+                    <span className="theme-text-tertiary shrink-0 font-mono text-[10px]">{row.executable}</span>
+                    <span className={`font-mono text-[10px] truncate ${row.found && row.path ? 'text-status-completed' : 'text-status-failed'}`}>
+                      {row.path || t.settings.notFound}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
 

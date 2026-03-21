@@ -281,7 +281,7 @@ export function buildCommandTemplate(config: ToolCLIConfig, model?: string): str
 
 export const DEFAULT_CLI_PROFILE: CLIProfile = {
   id: 'default',
-  name: 'Default (Open Source)',
+  name: 'Default',
   cursor: {
     executable: 'cursor-agent',
     baseArgs: ['--trust'],
@@ -298,40 +298,6 @@ export const DEFAULT_CLI_PROFILE: CLIProfile = {
   },
   claude: {
     executable: 'claude',
-    baseArgs: ['--print', '--permission-mode', 'bypassPermissions', '--add-dir', '.'],
-    promptFlag: '-p',
-    modelFlag: '--model',
-    promptMode: 'inline',
-  },
-  planner: {
-    executable: 'cursor-agent',
-    baseArgs: ['--trust'],
-    promptFlag: '-p',
-    modelFlag: '--model',
-    promptMode: 'inline',
-    defaultModel: 'opus-4.6',
-  },
-};
-
-export const INTERNAL_CLI_PROFILE: CLIProfile = {
-  id: 'internal',
-  name: 'Internal',
-  cursor: {
-    executable: 'cursor-agent',
-    baseArgs: ['--trust'],
-    promptFlag: '-p',
-    modelFlag: '--model',
-    promptMode: 'inline',
-    defaultModel: 'opus-4.6',
-  },
-  codex: {
-    executable: 'codex-internal',
-    baseArgs: ['exec', '--sandbox', 'workspace-write', '--skip-git-repo-check'],
-    modelFlag: '--model',
-    promptMode: 'argument',
-  },
-  claude: {
-    executable: 'claude-internal',
     baseArgs: ['--print', '--permission-mode', 'bypassPermissions', '--add-dir', '.'],
     promptFlag: '-p',
     modelFlag: '--model',

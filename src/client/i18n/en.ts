@@ -115,9 +115,8 @@ export const en = {
   },
   settings: {
     title: 'Settings',
-    cliProfile: 'CLI Profile',
-    openSource: 'Open Source',
-    internal: 'Internal',
+    cliProfile: 'CLI',
+    cliProfileHint: 'Default tools: cursor-agent, codex, claude. Detect resolves their paths on this machine.',
     detectEnv: 'Detect Environment',
     detecting: 'Detecting...',
     notFound: 'not found',
