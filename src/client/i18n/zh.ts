@@ -13,6 +13,9 @@ export const zh = {
     templates: '模板',
     pipelineName: 'Pipeline 名称',
     workingDir: '工作目录 (例如 ~/work/myapp)',
+    pipelineTemplate: '从模板创建（可选）',
+    blankPipeline: '空白 Pipeline',
+    browseFolder: '浏览…',
     create: '创建',
     cancel: '取消',
     stages: '阶段',
@@ -24,6 +27,8 @@ export const zh = {
     saveMd: '保存模板',
     run: '运行',
     stop: '停止',
+    workingDirLabel: '工作目录',
+    browseFolder: '浏览…',
   },
   editor: {
     noStages: '暂无阶段',

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/app-store';
-import type { Pipeline } from '@shared/types';
+import { api } from '../../lib/api';
+import { pickWorkingDirectory } from '../../lib/pick-folder';
+import type { Pipeline, PipelineTemplate } from '@shared/types';
 
 export function Sidebar() {
   const {
@@ -12,13 +14,47 @@ export function Sidebar() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDir, setNewDir] = useState('');
+  const [templates, setTemplates] = useState<PipelineTemplate[]>([]);
+  const [templateId, setTemplateId] = useState<string>('');
 
   const groups = projectGroups();
 
+  useEffect(() => {
+    if (!showNewProject) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [tmplList, home] = await Promise.all([
+          api.getTemplates(),
+          api.getHomePath().catch(() => ({ path: '' })),
+        ]);
+        if (!cancelled) {
+          setTemplates(tmplList);
+          setNewDir((d) => (d.trim() ? d : home.path || ''));
+        }
+      } catch {
+        if (!cancelled) setTemplates([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showNewProject]);
+
+  const handleBrowseDir = async () => {
+    const p = await pickWorkingDirectory();
+    if (p) setNewDir(p);
+  };
+
   const handleCreate = async () => {
     if (!newName.trim() || !newDir.trim()) return;
-    await useAppStore.getState().createPipeline(newName.trim(), newDir.trim());
-    setNewName(''); setNewDir(''); setShowNewProject(false);
+    await useAppStore.getState().createPipeline(
+      newName.trim(),
+      newDir.trim(),
+      templateId || null
+    );
+    setNewName('');
+    setNewDir('');
+    setTemplateId('');
+    setShowNewProject(false);
   };
 
   return (
@@ -54,10 +90,31 @@ export function Sidebar() {
       {showNewProject && (
         <div className="mx-3 mb-3 p-3 glass-panel space-y-2 animate-fade-in">
           <input className="input-field text-sm" placeholder={t.sidebar.pipelineName} value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
-          <input className="input-field text-sm" placeholder={t.sidebar.workingDir} value={newDir} onChange={(e) => setNewDir(e.target.value)} />
+          <label className="block text-[10px] theme-text-tertiary">{t.sidebar.pipelineTemplate}</label>
+          <select
+            className="input-field text-sm w-full"
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+          >
+            <option value="">{t.sidebar.blankPipeline}</option>
+            {templates.map((tm) => (
+              <option key={tm.id} value={tm.id}>{tm.name}</option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <input
+              className="input-field text-sm flex-1 min-w-0"
+              placeholder={t.sidebar.workingDir}
+              value={newDir}
+              onChange={(e) => setNewDir(e.target.value)}
+            />
+            <button type="button" onClick={handleBrowseDir} className="btn-ghost text-xs shrink-0 px-2" title={t.sidebar.browseFolder}>
+              {t.sidebar.browseFolder}
+            </button>
+          </div>
           <div className="flex gap-2">
             <button onClick={handleCreate} className="btn-primary text-xs flex-1">{t.sidebar.create}</button>
-            <button onClick={() => setShowNewProject(false)} className="btn-ghost text-xs">{t.sidebar.cancel}</button>
+            <button onClick={() => { setShowNewProject(false); setTemplateId(''); }} className="btn-ghost text-xs">{t.sidebar.cancel}</button>
           </div>
         </div>
       )}

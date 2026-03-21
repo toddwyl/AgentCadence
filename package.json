@@ -11,7 +11,8 @@
     "build:client": "vite build",
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server/index.js",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "test:smoke": "node scripts/agentflow-smoke.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

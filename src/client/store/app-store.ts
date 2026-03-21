@@ -57,7 +57,7 @@ interface AppState {
   loadInitialData: () => Promise<void>;
   selectPipeline: (id: string | null) => void;
   selectStep: (id: string | null) => void;
-  createPipeline: (name: string, workingDirectory: string) => Promise<void>;
+  createPipeline: (name: string, workingDirectory: string, templateId?: string | null) => Promise<void>;
   deletePipeline: (id: string) => Promise<void>;
   updatePipeline: (id: string, data: Record<string, unknown>) => Promise<void>;
   addStage: (pipelineId: string, name: string, mode: string) => Promise<void>;
@@ -175,8 +175,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectPipeline: (id) => set({ selectedPipelineID: id, selectedStepID: null }),
   selectStep: (id) => set({ selectedStepID: id }),
 
-  createPipeline: async (name, workingDirectory) => {
-    const p = await api.createPipeline(name, workingDirectory);
+  createPipeline: async (name, workingDirectory, templateId) => {
+    const p = templateId
+      ? await api.createFromTemplate(templateId, workingDirectory, name)
+      : await api.createPipeline(name, workingDirectory);
     set((s) => ({ pipelines: [...s.pipelines, p], selectedPipelineID: p.id }));
   },
 

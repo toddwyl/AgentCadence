@@ -68,7 +68,7 @@ function StageCard({ stage, stageIndex, pipelineId, onSelectStep, selectedStepId
   const { deleteStage, updateStage, addStep, t } = useAppStore();
   const [addingStep, setAddingStep] = useState(false);
   const [newStepName, setNewStepName] = useState('');
-  const [newStepTool, setNewStepTool] = useState<ToolType>('codex');
+  const [newStepTool, setNewStepTool] = useState<ToolType>('cursor');
   const [newStepPrompt, setNewStepPrompt] = useState('');
 
   const handleAddStep = async () => {

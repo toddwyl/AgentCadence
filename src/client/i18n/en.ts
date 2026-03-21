@@ -13,6 +13,9 @@ export const en = {
     templates: 'Templates',
     pipelineName: 'Pipeline name',
     workingDir: 'Working directory (e.g. ~/work/myapp)',
+    pipelineTemplate: 'Start from template (optional)',
+    blankPipeline: 'Empty pipeline',
+    browseFolder: 'Browse…',
     create: 'Create',
     cancel: 'Cancel',
     stages: 'stages',
@@ -24,6 +27,8 @@ export const en = {
     saveMd: 'Save MD',
     run: 'Run',
     stop: 'Stop',
+    workingDirLabel: 'Working directory',
+    browseFolder: 'Browse…',
   },
   editor: {
     noStages: 'No Stages Yet',

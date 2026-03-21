@@ -115,7 +115,7 @@ router.post('/:pipelineId/stages/:stageId/steps', (req: Request, res: Response) 
     name: body.name || 'New Step',
     command: body.command,
     prompt: body.prompt || '',
-    tool: body.tool || 'codex',
+    tool: body.tool || 'cursor',
     model: body.model,
     dependsOnStepIDs: body.dependsOnStepIDs || [],
     failureMode: body.failureMode ?? 'retry',
@@ -182,12 +182,12 @@ router.post('/:id/demo', (req: Request, res: Response) => {
   const codingA: PipelineStep = {
     id: uuidv4(), name: 'Implement feature A',
     prompt: 'Implement the user login form with email and password fields.',
-    tool: 'codex', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
+    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
   };
   const codingB: PipelineStep = {
     id: uuidv4(), name: 'Implement feature B',
     prompt: 'Implement the user registration form with validation.',
-    tool: 'codex', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
+    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
   };
   const review: PipelineStep = {
     id: uuidv4(), name: 'Code review',
@@ -197,7 +197,7 @@ router.post('/:id/demo', (req: Request, res: Response) => {
   const verify: PipelineStep = {
     id: uuidv4(), name: 'Verify & fix',
     prompt: 'Run the project, fix any compilation errors or test failures.',
-    tool: 'codex', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
+    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
   };
 
   pipelines[idx].stages = [

@@ -9,6 +9,7 @@ import plannerRoutes from './routes/planner.js';
 import settingsRoutes from './routes/settings.js';
 import templateRoutes from './routes/templates.js';
 import skillRoutes from './routes/skills.js';
+import fsRoutes from './routes/fs.js';
 import { initWebSocket } from './ws.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,6 +25,7 @@ app.use('/api/planner', plannerRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/skills', skillRoutes);
+app.use('/api/fs', fsRoutes);
 
 const clientDist = path.resolve(__dirname, '../../dist/client');
 app.use(express.static(clientDist));

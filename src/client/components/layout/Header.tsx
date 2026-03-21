@@ -1,14 +1,22 @@
+import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
+import { pickWorkingDirectory } from '../../lib/pick-folder';
 
 export function Header() {
   const {
     selectedPipeline, isExecuting, executingPipelineID,
     showFlowchart, toggleFlowchart,
-    runPipeline, stopPipeline, t,
+    runPipeline, stopPipeline, updatePipeline, t,
   } = useAppStore();
 
   const pipeline = selectedPipeline();
+  const [wd, setWd] = useState('');
+
+  useEffect(() => {
+    if (pipeline) setWd(pipeline.workingDirectory);
+  }, [pipeline?.id, pipeline?.workingDirectory]);
+
   if (!pipeline) return <div className="h-14 theme-header" />;
 
   const isRunning = isExecuting && executingPipelineID === pipeline.id;
@@ -26,15 +34,46 @@ export function Header() {
     } catch { /* ignore */ }
   };
 
+  const persistWd = async () => {
+    if (wd.trim() && wd !== pipeline.workingDirectory) {
+      await updatePipeline(pipeline.id, { workingDirectory: wd.trim() });
+    }
+  };
+
+  const handleBrowseWd = async () => {
+    const p = await pickWorkingDirectory();
+    if (p) {
+      setWd(p);
+      await updatePipeline(pipeline.id, { workingDirectory: p });
+    }
+  };
+
   return (
     <header className="h-14 px-6 flex items-center justify-between theme-header backdrop-blur-sm">
-      <div className="flex items-center gap-4">
-        <div>
+      <div className="flex items-center gap-4 min-w-0 flex-1">
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold theme-text">{pipeline.name}</h2>
-          <p className="text-[10px] theme-text-muted font-mono truncate max-w-[300px]">{pipeline.workingDirectory}</p>
+          <div className="flex items-center gap-2 mt-1 max-w-[min(100%,480px)]">
+            <span className="text-[10px] theme-text-muted shrink-0">{t.header.workingDirLabel}</span>
+            <input
+              className="input-field text-[10px] font-mono py-1 px-2 flex-1 min-w-0"
+              value={wd}
+              onChange={(e) => setWd(e.target.value)}
+              onBlur={persistWd}
+              disabled={isRunning}
+            />
+            <button
+              type="button"
+              onClick={handleBrowseWd}
+              disabled={isRunning}
+              className="btn-ghost text-[10px] py-1 px-2 shrink-0"
+            >
+              {t.header.browseFolder}
+            </button>
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <button onClick={toggleFlowchart}
           className={`btn-ghost text-xs flex items-center gap-1.5 ${showFlowchart ? 'text-accent-glow theme-active-bg' : ''}`}>
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>

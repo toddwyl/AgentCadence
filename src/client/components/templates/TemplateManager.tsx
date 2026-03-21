@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { PipelineTemplate } from '@shared/types';
 import { api } from '../../lib/api';
+import { pickWorkingDirectory } from '../../lib/pick-folder';
 import { useAppStore } from '../../store/app-store';
 
 export function TemplateManager() {
@@ -133,9 +134,10 @@ export function TemplateManager() {
               </div>
 
               {showUseForm === tmpl.id && (
-                <div className="mt-3 flex gap-2 animate-fade-in">
-                  <input className="input-field text-sm flex-1" placeholder={t.templates.workingDir}
+                <div className="mt-3 flex flex-wrap gap-2 animate-fade-in items-center">
+                  <input className="input-field text-sm flex-1 min-w-[120px]" placeholder={t.templates.workingDir}
                     value={useWorkDir} onChange={(e) => setUseWorkDir(e.target.value)} autoFocus />
+                  <button type="button" className="btn-ghost text-xs" onClick={async () => { const p = await pickWorkingDirectory(); if (p) setUseWorkDir(p); }}>{t.header.browseFolder}</button>
                   <button onClick={() => handleUseTemplate(tmpl.id)} className="btn-primary text-xs">{t.templates.createPipeline}</button>
                 </div>
               )}

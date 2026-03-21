@@ -1,5 +1,22 @@
 const BASE = '/api';
 
+export async function pickFolderRequest(): Promise<
+  { path: string } | { cancelled: true }
+> {
+  const res = await fetch(`${BASE}/fs/pick-folder`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  const body = (await res.json().catch(() => ({}))) as {
+    path?: string;
+    cancelled?: boolean;
+    error?: string;
+  };
+  if (res.status === 400 && body.cancelled) return { cancelled: true };
+  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+  return { path: body.path || '' };
+}
+
 async function request<T>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -13,6 +30,8 @@ async function request<T>(url: string, opts?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getHomePath: () => request<{ path: string }>('/fs/home'),
+  pickFolder: pickFolderRequest,
   getPipelines: () => request<any[]>('/pipelines'),
   createPipeline: (name: string, workingDirectory: string) =>
     request<any>('/pipelines', { method: 'POST', body: JSON.stringify({ name, workingDirectory }) }),
@@ -79,8 +98,11 @@ export const api = {
     request<any>('/templates', { method: 'POST', body: JSON.stringify({ name, description, stages }) }),
   saveAsTemplate: (pipelineId: string, name: string, description: string) =>
     request<any>(`/templates/from-pipeline/${pipelineId}`, { method: 'POST', body: JSON.stringify({ name, description }) }),
-  createFromTemplate: (templateId: string, workingDirectory: string) =>
-    request<any>(`/templates/${templateId}/create-pipeline`, { method: 'POST', body: JSON.stringify({ workingDirectory }) }),
+  createFromTemplate: (templateId: string, workingDirectory: string, name?: string) =>
+    request<any>(`/templates/${templateId}/create-pipeline`, {
+      method: 'POST',
+      body: JSON.stringify({ workingDirectory, ...(name ? { name } : {}) }),
+    }),
   deleteTemplate: (id: string) =>
     request<any>(`/templates/${id}`, { method: 'DELETE' }),
   exportTemplateMd: (id: string) =>

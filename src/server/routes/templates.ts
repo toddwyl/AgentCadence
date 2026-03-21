@@ -75,7 +75,10 @@ router.post('/:templateId/create-pipeline', (req: Request, res: Response) => {
   const template = templates.find((t) => t.id === req.params.templateId);
   if (!template) { res.status(404).json({ error: 'Template not found' }); return; }
 
-  const { workingDirectory } = req.body;
+  const { workingDirectory, name: pipelineName } = req.body as {
+    workingDirectory?: string;
+    name?: string;
+  };
   if (!workingDirectory) { res.status(400).json({ error: 'workingDirectory is required' }); return; }
 
   const newStages: PipelineStage[] = template.stages.map((stage) => ({
@@ -98,7 +101,7 @@ router.post('/:templateId/create-pipeline', (req: Request, res: Response) => {
 
   const pipeline: Pipeline = {
     id: uuidv4(),
-    name: template.name,
+    name: (pipelineName && pipelineName.trim()) || template.name,
     stages: newStages,
     workingDirectory,
     isAIGenerated: false,

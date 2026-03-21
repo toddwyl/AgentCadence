@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '../../store/app-store';
+import { pickWorkingDirectory } from '../../lib/pick-folder';
 import type { PlanningPhase } from '@shared/types';
 
 const PHASES: PlanningPhase[] = ['preparingContext', 'invokingAgentCLI', 'generatingStructure', 'parsingResult', 'creatingPipeline'];
@@ -24,7 +25,13 @@ export function AutoPlannerDialog() {
           <button onClick={() => setShowAutoPlanner(false)} className="btn-ghost text-xs">{t.stepDetail.close}</button>
         </div>
         <div className="p-6 space-y-4">
-          <div><label className="block text-xs theme-text-tertiary mb-1.5">{t.planner.workingDir}</label><input className="input-field text-sm font-mono" placeholder="e.g. /Users/you/work/myproject" value={workDir} onChange={(e) => setWorkDir(e.target.value)} disabled={isPlanningInProgress} /></div>
+          <div>
+            <label className="block text-xs theme-text-tertiary mb-1.5">{t.planner.workingDir}</label>
+            <div className="flex gap-2">
+              <input className="input-field text-sm font-mono flex-1 min-w-0" placeholder="e.g. /Users/you/work/myproject" value={workDir} onChange={(e) => setWorkDir(e.target.value)} disabled={isPlanningInProgress} />
+              <button type="button" disabled={isPlanningInProgress} className="btn-ghost text-xs shrink-0 px-2" onClick={async () => { const p = await pickWorkingDirectory(); if (p) setWorkDir(p); }}>{t.header.browseFolder}</button>
+            </div>
+          </div>
           <div><label className="block text-xs theme-text-tertiary mb-1.5">{t.planner.taskDesc}</label><textarea className="input-field text-sm min-h-[100px] resize-y" placeholder={t.planner.taskPlaceholder} value={prompt} onChange={(e) => setPrompt(e.target.value)} disabled={isPlanningInProgress} autoFocus /></div>
           {isPlanningInProgress && (
             <div className="space-y-2 animate-fade-in">{PHASES.map((phase, idx) => {
