@@ -14,7 +14,7 @@ export function Header() {
   const [wd, setWd] = useState('');
 
   useEffect(() => {
-    if (pipeline) setWd(pipeline.workingDirectory);
+    if (pipeline) setWd(pipeline.workingDirectory ?? '');
   }, [pipeline?.id, pipeline?.workingDirectory]);
 
   if (!pipeline) return <div className="h-14 theme-header" />;

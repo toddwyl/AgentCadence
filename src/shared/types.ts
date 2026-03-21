@@ -34,6 +34,12 @@ export const TOOL_META: Record<ToolType, {
   },
 };
 
+/** Safe lookup for UI when persisted data may have missing/invalid tool. */
+export function safeToolMeta(tool: ToolType | string | undefined): (typeof TOOL_META)[ToolType] {
+  if (tool && tool in TOOL_META) return TOOL_META[tool as ToolType];
+  return TOOL_META.cursor;
+}
+
 export function toolFromKeyword(keyword: string): ToolType {
   const lower = keyword.toLowerCase();
   if (lower.includes('cursor') || lower.includes('agent')) return 'cursor';

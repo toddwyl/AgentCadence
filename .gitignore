@@ -1,4 +1,6 @@
 node_modules/
 dist/
+# stray JS sibling of types.ts breaks Vite resolution
+src/shared/types.js
 .DS_Store
 *.log

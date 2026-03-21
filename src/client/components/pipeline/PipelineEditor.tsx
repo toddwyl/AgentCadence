@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Pipeline, PipelineStage, PipelineStep, ToolType } from '@shared/types';
-import { TOOL_META, TOOL_TYPES } from '@shared/types';
+import { TOOL_META, TOOL_TYPES, safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 import { StepDetailPanel } from './StepDetailPanel';
 
@@ -120,7 +120,7 @@ function StageCard({ stage, stageIndex, pipelineId, onSelectStep, selectedStepId
 }
 
 function StepRow({ step, stepIndex, selected, onClick }: { step: PipelineStep; stepIndex: number; selected: boolean; onClick: () => void; }) {
-  const meta = TOOL_META[step.tool];
+  const meta = safeToolMeta(step.tool);
   return (
     <div onClick={onClick}
       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150

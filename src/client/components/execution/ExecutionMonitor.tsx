@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import type { Pipeline, StepStatus } from '@shared/types';
-import { TOOL_META } from '@shared/types';
+import { safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 
 export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
@@ -16,7 +16,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     executionError,
     t,
   } = useAppStore();
-  const allSteps = pipeline.stages.flatMap((s) => s.steps);
+  const allSteps = (pipeline.stages ?? []).flatMap((s) => s.steps ?? []);
   const completedCount = allSteps.filter((s) => stepStatuses[s.id] === 'completed').length;
   const failedCount = allSteps.filter((s) => stepStatuses[s.id] === 'failed').length;
   const skippedCount = allSteps.filter((s) => stepStatuses[s.id] === 'skipped').length;
@@ -41,12 +41,12 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {pipeline.stages.map((stage) => (
+          {(pipeline.stages ?? []).map((stage) => (
             <div key={stage.id}>
               <div className="px-4 py-2 text-[10px] font-medium theme-text-muted uppercase tracking-wider theme-bg-0" style={{ opacity: 0.7 }}>{stage.name}</div>
-              {stage.steps.map((step) => {
+              {(stage.steps ?? []).map((step) => {
                 const status = stepStatuses[step.id] || step.status;
-                const meta = TOOL_META[step.tool];
+                const meta = safeToolMeta(step.tool);
                 return (
                   <div key={step.id} onClick={() => selectStep(step.id)}
                     className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all ${selectedStepID === step.id ? 'theme-active-bg' : 'theme-hover'}`}>

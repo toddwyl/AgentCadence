@@ -150,7 +150,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     return Object.entries(grouped)
       .map(([dir, pls]) => ({
         workingDirectory: dir === '__empty__' ? '' : dir,
-        displayName: dir === '__empty__' ? 'No Project' : dir.split('/').pop() || 'Unknown',
+        displayName: (() => {
+          if (dir === '__empty__') return 'No Project';
+          const normalized = dir.trim().replace(/[/\\]+$/, '');
+          const parts = normalized.split(/[/\\]/).filter(Boolean);
+          const leaf = parts[parts.length - 1];
+          return leaf || normalized || 'Unknown';
+        })(),
         pipelines: pls.sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
       }))
       .sort((a, b) => a.displayName.localeCompare(b.displayName));

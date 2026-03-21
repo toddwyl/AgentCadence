@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Pipeline, PipelineStage, PipelineStep, StepStatus } from '@shared/types';
-import { TOOL_META } from '@shared/types';
+import { safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 
 const STEP_W = 180, STEP_H = 52;
@@ -126,7 +126,7 @@ export function FlowchartView({ pipeline }: { pipeline: Pipeline }) {
             {/* Step nodes */}
             {layout.stepPositions.map((sp) => {
               const status = stepStatuses[sp.step.id] || sp.step.status;
-              const meta = TOOL_META[sp.step.tool];
+              const meta = safeToolMeta(sp.step.tool);
               const selected = selectedStepID === sp.step.id;
               return (
                 <g key={sp.step.id} transform={`translate(${sp.x}, ${sp.y})`} className="cursor-pointer" onClick={() => selectStep(sp.step.id)}>
