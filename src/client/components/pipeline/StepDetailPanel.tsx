@@ -15,7 +15,20 @@ interface SkillInfo {
 }
 
 export function StepDetailPanel({ step, pipelineId, allSteps }: { step: PipelineStep; pipelineId: string; allSteps: PipelineStep[]; }) {
-  const { updateStep, deleteStep, selectStep, stepStatuses, stepOutputs, pipelines, selectedPipeline, t } = useAppStore();
+  const {
+    updateStep,
+    deleteStep,
+    selectStep,
+    stepStatuses,
+    stepOutputs,
+    stepRetryRecords,
+    stepRetryMaxAttempts,
+    isExecuting,
+    executingPipelineID,
+    pipelines,
+    selectedPipeline,
+    t,
+  } = useAppStore();
   const [name, setName] = useState(step.name);
   const [prompt, setPrompt] = useState(step.prompt);
   const [tool, setTool] = useState<ToolType>(step.tool);
@@ -61,7 +74,21 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   const isDirty = name !== step.name || prompt !== step.prompt || tool !== step.tool || command !== (step.command || '') || model !== (step.model || '') || failureMode !== (step.failureMode || 'retry') || retryCount !== (step.retryCount ?? 3);
   const status = stepStatuses[step.id];
   const output = stepOutputs[step.id];
-  const retryRecords = getRetryRecords(pipelineId, step.id, pipelines);
+  const retryRecords = useMemo(() => {
+    const live = stepRetryRecords[step.id];
+    if (isExecuting && executingPipelineID === pipelineId && live?.length) {
+      return live;
+    }
+    return getRetryRecordsFromHistory(pipelineId, step.id, pipelines);
+  }, [
+    isExecuting,
+    executingPipelineID,
+    pipelineId,
+    step.id,
+    stepRetryRecords,
+    pipelines,
+  ]);
+  const liveRetryMax = stepRetryMaxAttempts[step.id];
 
   const filteredSkills = useMemo(() =>
     toolSkills.filter((s) => {
@@ -250,6 +277,13 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
         {retryRecords.length > 0 && (
           <div className="space-y-2 p-3 rounded-lg bg-amber-500/[0.04]" style={{ border: '1px solid rgba(245,158,11,0.2)' }}>
             <label className="block text-xs font-medium text-amber-500">{t.stepDetail.retryRecords}</label>
+            {liveRetryMax && isExecuting && executingPipelineID === pipelineId && (
+              <p className="text-[10px] text-amber-400/90">
+                {t.stepDetail.retryInfo
+                  .replace('{current}', String(retryRecords.length))
+                  .replace('{total}', String(liveRetryMax))}
+              </p>
+            )}
             {retryRecords.map((record, i) => (
               <div key={i} className="text-xs p-2 rounded theme-bg-0" style={{ border: '1px solid var(--color-border)' }}>
                 <div className="flex items-center justify-between mb-1">
@@ -281,7 +315,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   );
 }
 
-function getRetryRecords(pipelineId: string, stepId: string, pipelines: any[]): RetryRecord[] {
+function getRetryRecordsFromHistory(pipelineId: string, stepId: string, pipelines: any[]): RetryRecord[] {
   const pipeline = pipelines.find((p: any) => p.id === pipelineId);
   if (!pipeline?.runHistory?.length) return [];
   const lastRun = pipeline.runHistory[pipeline.runHistory.length - 1];

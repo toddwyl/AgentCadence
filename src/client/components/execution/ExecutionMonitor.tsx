@@ -4,7 +4,18 @@ import { TOOL_META } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 
 export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
-  const { stepStatuses, stepOutputs, selectedStepID, selectStep, executionError, t } = useAppStore();
+  const {
+    stepStatuses,
+    stepOutputs,
+    stepRetryRecords,
+    stepRetryMaxAttempts,
+    isExecuting,
+    executingPipelineID,
+    selectedStepID,
+    selectStep,
+    executionError,
+    t,
+  } = useAppStore();
   const allSteps = pipeline.stages.flatMap((s) => s.steps);
   const completedCount = allSteps.filter((s) => stepStatuses[s.id] === 'completed').length;
   const failedCount = allSteps.filter((s) => stepStatuses[s.id] === 'failed').length;
@@ -40,7 +51,20 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                   <div key={step.id} onClick={() => selectStep(step.id)}
                     className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-all ${selectedStepID === step.id ? 'theme-active-bg' : 'theme-hover'}`}>
                     <StatusIcon status={status} />
-                    <div className="flex-1 min-w-0"><div className="text-xs theme-text-secondary truncate">{step.name}</div></div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs theme-text-secondary truncate">{step.name}</div>
+                      {isExecuting &&
+                        executingPipelineID === pipeline.id &&
+                        status === 'running' &&
+                        stepRetryMaxAttempts[step.id] &&
+                        (stepRetryRecords[step.id]?.length ?? 0) > 0 && (
+                        <div className="text-[9px] text-amber-500 mt-0.5 truncate">
+                          {t.stepDetail.retryInfo
+                            .replace('{current}', String(stepRetryRecords[step.id]?.length ?? 0))
+                            .replace('{total}', String(stepRetryMaxAttempts[step.id]))}
+                        </div>
+                      )}
+                    </div>
                     <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ backgroundColor: meta.tintColor + '12', color: meta.tintColor }}>{meta.displayName}</span>
                   </div>
                 );

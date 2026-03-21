@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import type { WSMessage } from '@shared/types';
+import type { WSMessage, RetryRecord } from '@shared/types';
 import { useAppStore } from './store/app-store';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Sidebar } from './components/layout/Sidebar';
@@ -27,6 +27,15 @@ export default function App() {
         store.handleStepStatusChanged(p.pipelineID, p.stepID, p.status); break;
       case 'step_output':
         store.handleStepOutput(p.pipelineID, p.stepID, p.output); break;
+      case 'step_retry':
+        store.handleStepRetry(
+          p.pipelineID,
+          p.stepID,
+          p.retryRecords as RetryRecord[],
+          p.failedAttempt as number,
+          p.maxAttempts as number
+        );
+        break;
       case 'pipeline_run_started':
         store.handleRunStarted(p.pipelineID); break;
       case 'pipeline_run_finished':

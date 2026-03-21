@@ -75,7 +75,7 @@ export const zh = {
     failed: '已失败',
     noOutput: '暂无输出',
     selectStep: '选择步骤查看输出',
-    retryInfo: '重试 {current}/{total}',
+    retryInfo: '已失败 {current} 轮 / 最多共 {total} 次尝试',
   },
   planner: {
     title: 'AI Pipeline 生成器',

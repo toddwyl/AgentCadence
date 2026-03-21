@@ -108,19 +108,31 @@ async function executeStep(
   }
 }
 
+function effectiveMaxAttempts(step: PipelineStep): number {
+  const failureMode = step.failureMode ?? 'retry';
+  if (failureMode === 'skip' || failureMode === 'stop') return 1;
+  const raw = step.retryCount;
+  const n = typeof raw === 'number' ? raw : parseInt(String(raw ?? ''), 10);
+  if (!Number.isFinite(n) || n < 1) return 3;
+  return Math.min(50, Math.floor(n));
+}
+
 async function executeStepWithRetry(
   step: PipelineStep,
   stageID: string,
   workingDirectory: string,
   profile: CLIProfile,
   executionControl: ExecutionControl | null,
-  onOutputChunk: (chunk: string) => void
+  onOutputChunk: (chunk: string) => void,
+  onRetryProgress?: (
+    stepID: string,
+    retryRecords: RetryRecord[],
+    failedAttempt: number,
+    maxAttempts: number
+  ) => void
 ): Promise<StepResult> {
-  const failureMode = step.failureMode ?? 'stop';
-  const maxAttempts =
-    failureMode === 'skip' || failureMode === 'stop'
-      ? 1
-      : Math.max(1, step.retryCount ?? 1);
+  const failureMode = step.failureMode ?? 'retry';
+  const maxAttempts = effectiveMaxAttempts(step);
 
   const retryRecords: RetryRecord[] = [];
   let lastResult: StepResult | null = null;
@@ -150,9 +162,11 @@ async function executeStepWithRetry(
       timestamp: new Date().toISOString(),
     });
 
+    onRetryProgress?.(step.id, [...retryRecords], attempt, maxAttempts);
+
     if (attempt < maxAttempts) {
       onOutputChunk(
-        `\n⟳ Retry ${attempt}/${maxAttempts} — previous error: ${result.error}\n\n`
+        `\n⟳ Attempt ${attempt}/${maxAttempts} failed — retrying (${attempt + 1}/${maxAttempts})…\nPrevious error: ${result.error}\n\n`
       );
     }
   }
@@ -174,7 +188,13 @@ export class DAGScheduler {
     profile: CLIProfile,
     executionControl: ExecutionControl | null = null,
     onStepStatusChanged: (stepID: string, status: StepStatus) => void,
-    onStepOutput: (stepID: string, output: string) => void
+    onStepOutput: (stepID: string, output: string) => void,
+    onRetryProgress?: (
+      stepID: string,
+      retryRecords: RetryRecord[],
+      failedAttempt: number,
+      maxAttempts: number
+    ) => void
   ): Promise<StepResult[]> {
     const allSteps = resolveAllSteps(pipeline);
     validateDAG(allSteps);
@@ -247,7 +267,8 @@ export class DAGScheduler {
             workDir,
             profile,
             executionControl,
-            (chunk) => onStepOutput(resolved.step.id, chunk)
+            (chunk) => onStepOutput(resolved.step.id, chunk),
+            onRetryProgress
           )
         )
       );

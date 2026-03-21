@@ -93,6 +93,19 @@ async function runPipeline(pipeline: Pipeline) {
           type: 'step_output',
           payload: { pipelineID: pipeline.id, stepID, output },
         });
+      },
+      (stepID, retryRecords, failedAttempt, maxAttempts) => {
+        updateRunRecordRetry(runRecord, stepID, retryRecords, undefined, maxAttempts);
+        broadcast({
+          type: 'step_retry',
+          payload: {
+            pipelineID: pipeline.id,
+            stepID,
+            retryRecords,
+            failedAttempt,
+            maxAttempts,
+          },
+        });
       }
     );
 
@@ -155,13 +168,15 @@ function updateRunRecordRetry(
   runRecord: PipelineRunRecord,
   stepID: string,
   retryRecords?: RetryRecord[],
-  totalAttempts?: number
+  totalAttempts?: number,
+  maxAttemptsHint?: number
 ) {
   for (const sr of runRecord.stageRuns) {
     for (const stepRun of sr.stepRuns) {
       if (stepRun.stepID === stepID) {
-        stepRun.retryRecords = retryRecords;
-        stepRun.totalAttempts = totalAttempts;
+        if (retryRecords !== undefined) stepRun.retryRecords = retryRecords;
+        if (totalAttempts !== undefined) stepRun.totalAttempts = totalAttempts;
+        if (maxAttemptsHint !== undefined) stepRun.maxAttempts = maxAttemptsHint;
         return;
       }
     }

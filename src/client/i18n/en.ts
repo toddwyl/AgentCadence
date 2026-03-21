@@ -75,7 +75,7 @@ export const en = {
     failed: 'failed',
     noOutput: 'No output yet',
     selectStep: 'Select a step to view output',
-    retryInfo: 'Retry {current}/{total}',
+    retryInfo: '{current} failed round(s) / {total} max attempts',
   },
   planner: {
     title: 'AI Pipeline Generator',

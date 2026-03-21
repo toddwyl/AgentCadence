@@ -7,6 +7,7 @@ import type {
   LLMConfig,
   PlanningPhase,
   ExecutionNotificationSettings,
+  RetryRecord,
 } from '@shared/types';
 import { pipelineAllSteps } from '@shared/types';
 import { api } from '../lib/api';
@@ -27,6 +28,9 @@ interface AppState {
   selectedStepID: string | null;
   stepStatuses: Record<string, StepStatus>;
   stepOutputs: Record<string, string>;
+  /** Live retry progress during current run (WebSocket step_retry) */
+  stepRetryRecords: Record<string, RetryRecord[]>;
+  stepRetryMaxAttempts: Record<string, number>;
   isExecuting: boolean;
   executingPipelineID: string | null;
   executionError: string | null;
@@ -69,6 +73,13 @@ interface AppState {
 
   handleStepStatusChanged: (pipelineID: string, stepID: string, status: StepStatus) => void;
   handleStepOutput: (pipelineID: string, stepID: string, output: string) => void;
+  handleStepRetry: (
+    pipelineID: string,
+    stepID: string,
+    retryRecords: RetryRecord[],
+    failedAttempt: number,
+    maxAttempts: number
+  ) => void;
   handleRunStarted: (pipelineID: string) => void;
   handleRunFinished: (pipelineID: string, status: string, error?: string) => void;
   handlePlanningPhase: (phase: PlanningPhase) => void;
@@ -92,6 +103,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedStepID: null,
   stepStatuses: {},
   stepOutputs: {},
+  stepRetryRecords: {},
+  stepRetryMaxAttempts: {},
   isExecuting: false,
   executingPipelineID: null,
   executionError: null,
@@ -229,6 +242,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       executionError: null,
       stepStatuses: {},
       stepOutputs: {},
+      stepRetryRecords: {},
+      stepRetryMaxAttempts: {},
     });
     await api.runPipeline(id, 'pipeline');
   },
@@ -263,6 +278,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
+  handleStepRetry: (_pipelineID, stepID, retryRecords, _failedAttempt, maxAttempts) => {
+    set((s) => ({
+      stepRetryRecords: { ...s.stepRetryRecords, [stepID]: retryRecords },
+      stepRetryMaxAttempts: { ...s.stepRetryMaxAttempts, [stepID]: maxAttempts },
+    }));
+  },
+
   handleRunStarted: (pipelineID) => {
     set({
       isExecuting: true,
@@ -275,6 +297,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       isExecuting: false,
       executingPipelineID: null,
       executionError: error || null,
+      stepRetryRecords: {},
+      stepRetryMaxAttempts: {},
     });
     get().refreshPipelines();
   },

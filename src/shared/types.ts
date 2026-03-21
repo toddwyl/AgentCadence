@@ -111,6 +111,8 @@ export interface StepRunRecord {
   output?: string;
   retryRecords?: RetryRecord[];
   totalAttempts?: number;
+  /** Planned max attempts when failureMode is retry (for live UI) */
+  maxAttempts?: number;
 }
 
 export interface StageRunRecord {
@@ -415,6 +417,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: ExecutionNotificationSettings = {
 export type WSEventType =
   | 'step_status_changed'
   | 'step_output'
+  | 'step_retry'
   | 'pipeline_run_started'
   | 'pipeline_run_finished'
   | 'planning_phase'
