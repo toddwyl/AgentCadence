@@ -14,6 +14,14 @@ import { toolFromKeyword, DEFAULT_LLM_CONFIG } from '../../shared/types.js';
 import { CLIRunner, CLIError } from './cli-runner.js';
 import { v4 as uuidv4 } from 'uuid';
 import { buildToolArguments } from '../../shared/types.js';
+import {
+  buildPipelineMarkdownFormatInstructions,
+  buildPlannerRetryPrompt,
+  extractPipelineMarkdownDocument,
+  parseMarkdownToPlanResult,
+} from '../../shared/pipeline-markdown.js';
+
+const MAX_PLANNER_ATTEMPTS = 3;
 
 export class PlannerError extends Error {
   constructor(
@@ -31,55 +39,6 @@ function stripANSI(text: string): string {
 
 function cleanOutput(text: string): string {
   return stripANSI(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
-}
-
-function extractJSONText(text: string): string | null {
-  const cleaned = text.trim();
-  if (!cleaned) return null;
-
-  const candidates: string[] = [cleaned];
-
-  const fencePattern = /```(?:json)?\s*([\s\S]*?)```/gi;
-  let match;
-  while ((match = fencePattern.exec(cleaned)) !== null) {
-    candidates.push(match[1]);
-  }
-
-  const chars = Array.from(cleaned);
-  let depth = 0;
-  let start: number | null = null;
-  let inStr = false;
-  let escaping = false;
-  for (let i = 0; i < chars.length; i++) {
-    const ch = chars[i];
-    if (inStr) {
-      if (escaping) { escaping = false; continue; }
-      if (ch === '\\') { escaping = true; continue; }
-      if (ch === '"') { inStr = false; }
-      continue;
-    }
-    if (ch === '"') { inStr = true; continue; }
-    if (ch === '{') {
-      if (depth === 0) start = i;
-      depth++;
-    } else if (ch === '}' && depth > 0) {
-      depth--;
-      if (depth === 0 && start !== null) {
-        candidates.push(chars.slice(start, i + 1).join(''));
-        start = null;
-      }
-    }
-  }
-
-  for (const candidate of candidates) {
-    const trimmed = candidate.trim();
-    if (!trimmed) continue;
-    try {
-      const parsed = JSON.parse(trimmed) as PlanResponse;
-      if (parsed.pipelineName && parsed.stages) return trimmed;
-    } catch { /* ignore */ }
-  }
-  return null;
 }
 
 function resolvedTool(stepName: string, stageName: string, recommended: string): ToolType {
@@ -111,6 +70,7 @@ function planResponseToPipeline(plan: PlanResponse, workingDirectory: string): P
         id,
         name: psStep.name,
         prompt: psStep.prompt,
+        command: psStep.command,
         tool: resolvedTool(psStep.name, ps.name, psStep.recommendedTool),
         model: psStep.model,
         dependsOnStepIDs: deps,
@@ -139,22 +99,14 @@ export function buildPlannerPrompt(
   tools: ToolType[],
   customPolicy: string
 ): string {
-  const toolList = tools.join(', ');
   const policySection = customPolicy.trim()
     ? `\n\nAdditional planning policy (user-defined):\n${customPolicy.trim()}`
     : '';
 
+  const formatInstructions = buildPipelineMarkdownFormatInstructions(tools);
+
   return `You are an AI pipeline planner.
-Given a user's task description, generate a structured pipeline as JSON.
-
-Available tools: ${toolList}
-
-Tool guidance:
-- codex: Default for implementation, feature work, and verify/fix steps.
-- cursor: Default for code review steps.
-- claude: Optional alternative for analysis/review, but not the default.
-
-Typical pattern: codex for initial coding, cursor for code review, and codex for verify/fix.
+${formatInstructions}
 
 Planning quality requirements:
 - Ground all major decisions in the repository context; avoid generic assumptions.
@@ -162,27 +114,6 @@ Planning quality requirements:
 - Decompose adaptively by complexity: simple tasks should stay concise (often 1-3 steps), and complex tasks should split only when dependencies, risk, or validation needs justify it.
 - Each step prompt should ask for concrete file-level actions and verification.
 ${policySection}
-
-Respond with ONLY a valid JSON object (no markdown fences, no prose) in this format:
-{
-  "pipelineName": "descriptive name",
-  "stages": [
-    {
-      "name": "stage name",
-      "executionMode": "parallel" | "sequential",
-      "steps": [
-        {
-          "name": "step name",
-          "prompt": "detailed prompt for the AI tool",
-          "recommendedTool": "codex" | "claude" | "cursor",
-          "model": null,
-          "dependsOn": ["other step name"] or null,
-          "failureMode": "retry"
-        }
-      ]
-    }
-  ]
-}
 
 Guidelines:
 1. Break complex tasks into logical stages and steps.
@@ -208,7 +139,7 @@ export class AIPlanner {
   ): Promise<Pipeline> {
     onPhaseUpdate?.('preparingContext');
 
-    const prompt = buildPlannerPrompt(
+    const basePrompt = buildPlannerPrompt(
       request.userPrompt,
       request.availableTools,
       config.customPolicy
@@ -216,62 +147,124 @@ export class AIPlanner {
 
     const model = config.model.trim() || DEFAULT_LLM_CONFIG.model;
     const plannerConfig = profile.planner;
-    const args = buildToolArguments(plannerConfig, prompt, model, request.workingDirectory);
 
-    let result;
-    try {
-      onPhaseUpdate?.('invokingAgentCLI');
-      onPhaseUpdate?.('generatingStructure');
-      result = await this.cli.run({
-        command: plannerConfig.executable,
-        args,
-        workingDirectory: request.workingDirectory,
-        stdinData: plannerConfig.promptMode === 'stdin' ? prompt : undefined,
-        timeout: 600,
-        onOutputChunk: (chunk) => {
-          const cleaned = stripANSI(chunk).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-          if (cleaned) onLog?.(cleaned);
-        },
-      });
-    } catch (err) {
-      if (err instanceof CLIError) {
-        if (err.code === 'CANCELLED') throw new PlannerError('CANCELLED', 'Pipeline generation was cancelled.');
-        const msg = err.message.toLowerCase();
-        if (msg.includes('not found') || msg.includes('no such file')) {
-          throw new PlannerError('CLI_UNAVAILABLE', 'Agent CLI is not available.');
+    let lastMarkdown = '';
+    let lastErrors: string[] = [];
+
+    for (let attempt = 1; attempt <= MAX_PLANNER_ATTEMPTS; attempt++) {
+      const prompt =
+        attempt === 1
+          ? basePrompt
+          : buildPlannerRetryPrompt(
+              basePrompt,
+              attempt,
+              MAX_PLANNER_ATTEMPTS,
+              lastErrors,
+              lastMarkdown
+            );
+
+      const args = buildToolArguments(plannerConfig, prompt, model, request.workingDirectory);
+
+      let result;
+      try {
+        onPhaseUpdate?.('invokingAgentCLI');
+        onPhaseUpdate?.('generatingStructure');
+        result = await this.cli.run({
+          command: plannerConfig.executable,
+          args,
+          workingDirectory: request.workingDirectory,
+          stdinData: plannerConfig.promptMode === 'stdin' ? prompt : undefined,
+          timeout: 600,
+          onOutputChunk: (chunk) => {
+            const cleaned = stripANSI(chunk).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            if (cleaned) onLog?.(cleaned);
+          },
+        });
+      } catch (err) {
+        if (err instanceof CLIError) {
+          if (err.code === 'CANCELLED') {
+            throw new PlannerError('CANCELLED', 'Pipeline generation was cancelled.');
+          }
+          const msg = err.message.toLowerCase();
+          if (msg.includes('not found') || msg.includes('no such file')) {
+            throw new PlannerError('CLI_UNAVAILABLE', 'Agent CLI is not available.');
+          }
+          lastErrors = [err.message];
+          lastMarkdown = '';
+          onLog?.(`\n[Planner] CLI error (attempt ${attempt}/${MAX_PLANNER_ATTEMPTS}): ${err.message}\n`);
+          if (attempt >= MAX_PLANNER_ATTEMPTS) {
+            throw new PlannerError('COMMAND_FAILED', err.message);
+          }
+          continue;
         }
-        throw new PlannerError('COMMAND_FAILED', err.message);
+        throw new PlannerError('COMMAND_FAILED', (err as Error).message);
       }
-      throw new PlannerError('COMMAND_FAILED', (err as Error).message);
-    }
 
-    if (result.exitCode !== 0) {
-      const stderr = cleanOutput(result.stderr);
+      if (result.exitCode !== 0) {
+        const stderr = cleanOutput(result.stderr);
+        const stdout = cleanOutput(result.stdout);
+        const details = stderr || stdout || `Exit code ${result.exitCode}`;
+        lastErrors = [`CLI exited with non-zero status: ${details}`];
+        lastMarkdown = [stdout, stderr].filter(Boolean).join('\n');
+        onLog?.(`\n[Planner] CLI failed (attempt ${attempt}/${MAX_PLANNER_ATTEMPTS}): ${details}\n`);
+        if (attempt >= MAX_PLANNER_ATTEMPTS) {
+          throw new PlannerError('COMMAND_FAILED', details);
+        }
+        continue;
+      }
+
       const stdout = cleanOutput(result.stdout);
-      const details = stderr || stdout || `Exit code ${result.exitCode}`;
-      throw new PlannerError('COMMAND_FAILED', details);
-    }
+      const stderr = cleanOutput(result.stderr);
+      const merged = [stdout, stderr].filter(Boolean).join('\n');
 
-    const stdout = cleanOutput(result.stdout);
-    const stderr = cleanOutput(result.stderr);
-    const merged = [stdout, stderr].filter(Boolean).join('\n');
+      if (!merged.trim()) {
+        lastErrors = ['Agent CLI returned empty output.'];
+        lastMarkdown = '';
+        onLog?.(`\n[Planner] Empty output (attempt ${attempt}/${MAX_PLANNER_ATTEMPTS})\n`);
+        if (attempt >= MAX_PLANNER_ATTEMPTS) {
+          throw new PlannerError('EMPTY_RESPONSE', 'Agent CLI returned empty output.');
+        }
+        continue;
+      }
 
-    if (!merged.trim()) {
-      throw new PlannerError('EMPTY_RESPONSE', 'Agent CLI returned empty output.');
-    }
+      onPhaseUpdate?.('parsingResult');
+      const doc =
+        extractPipelineMarkdownDocument(merged) || extractPipelineMarkdownDocument(stdout);
+      if (!doc) {
+        lastErrors = [
+          'Could not find a Markdown pipeline document. Start with `# Your pipeline title` (optionally inside a ```markdown fenced block).',
+        ];
+        lastMarkdown = merged;
+        onLog?.(`\n[Planner] ${lastErrors[0]} (attempt ${attempt}/${MAX_PLANNER_ATTEMPTS})\n`);
+        if (attempt >= MAX_PLANNER_ATTEMPTS) {
+          throw new PlannerError('INVALID_RESPONSE', lastErrors.join(' '));
+        }
+        continue;
+      }
 
-    onPhaseUpdate?.('parsingResult');
-    const jsonText = extractJSONText(stdout) || extractJSONText(merged);
-    if (!jsonText) {
-      throw new PlannerError('INVALID_RESPONSE', 'Failed to find valid pipeline JSON in Agent CLI output.');
-    }
+      const parsed = parseMarkdownToPlanResult(doc, true);
+      if (!parsed.ok) {
+        lastErrors = parsed.errors;
+        lastMarkdown = doc;
+        onLog?.(
+          `\n[Planner] Markdown validation failed (attempt ${attempt}/${MAX_PLANNER_ATTEMPTS}):\n${parsed.errors.map((e) => `- ${e}`).join('\n')}\n`
+        );
+        if (attempt >= MAX_PLANNER_ATTEMPTS) {
+          throw new PlannerError(
+            'INVALID_RESPONSE',
+            `Failed after ${MAX_PLANNER_ATTEMPTS} attempts: ${parsed.errors.join('; ')}`
+          );
+        }
+        continue;
+      }
 
-    try {
-      const plan = JSON.parse(jsonText) as PlanResponse;
       onPhaseUpdate?.('creatingPipeline');
-      return planResponseToPipeline(plan, request.workingDirectory);
-    } catch (err) {
-      throw new PlannerError('PARSING_ERROR', `Failed to parse pipeline: ${(err as Error).message}`);
+      return planResponseToPipeline(parsed.plan, request.workingDirectory);
     }
+
+    throw new PlannerError(
+      'INVALID_RESPONSE',
+      `Failed after ${MAX_PLANNER_ATTEMPTS} attempts: ${lastErrors.join('; ')}`
+    );
   }
 }

@@ -72,7 +72,7 @@ router.post('/:id/stages', (req: Request, res: Response) => {
   const { name, executionMode } = req.body as AddStageRequest;
   const stage: PipelineStage = {
     id: uuidv4(),
-    name: name || 'New Stage',
+    name: name || 'Phase',
     steps: [],
     executionMode: (executionMode as ExecutionMode) || 'parallel',
   };
@@ -112,7 +112,7 @@ router.post('/:pipelineId/stages/:stageId/steps', (req: Request, res: Response) 
   const body = req.body as AddStepRequest;
   const step: PipelineStep = {
     id: uuidv4(),
-    name: body.name || 'New Step',
+    name: body.name || 'Step',
     command: body.command,
     prompt: body.prompt || '',
     tool: body.tool || 'cursor',

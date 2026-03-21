@@ -360,7 +360,7 @@ export const PLANNING_PHASE_TITLES: Record<PlanningPhase, string> = {
   preparingContext: 'Prepare task context',
   invokingAgentCLI: 'Invoke Agent CLI',
   generatingStructure: 'Generate pipeline structure',
-  parsingResult: 'Parse structured JSON',
+  parsingResult: 'Parse structured Markdown',
   creatingPipeline: 'Create pipeline in app',
 };
 
@@ -386,6 +386,7 @@ export interface PlannedStep {
   prompt: string;
   recommendedTool: string;
   model?: string;
+  command?: string;
   dependsOn?: string[];
   failureMode?: 'stop' | 'skip' | 'retry';
 }

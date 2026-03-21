@@ -13,8 +13,8 @@ export function PipelineEditor({ pipeline }: { pipeline: Pipeline }) {
   const selectedStep = pipeline.stages.flatMap((s) => s.steps).find((s) => s.id === selectedStepID);
 
   const handleAddStage = async () => {
-    if (!newStageName.trim()) return;
-    await addStage(pipeline.id, newStageName.trim(), newStageMode);
+    const name = newStageName.trim() || t.editor.defaultStageName;
+    await addStage(pipeline.id, name, newStageMode);
     setNewStageName(''); setAddingStage(false);
   };
 
@@ -72,8 +72,8 @@ function StageCard({ stage, stageIndex, pipelineId, onSelectStep, selectedStepId
   const [newStepPrompt, setNewStepPrompt] = useState('');
 
   const handleAddStep = async () => {
-    if (!newStepName.trim()) return;
-    await addStep(pipelineId, stage.id, { name: newStepName.trim(), prompt: newStepPrompt.trim(), tool: newStepTool });
+    const name = newStepName.trim() || t.editor.defaultStepName;
+    await addStep(pipelineId, stage.id, { name, prompt: newStepPrompt.trim(), tool: newStepTool });
     setNewStepName(''); setNewStepPrompt(''); setAddingStep(false);
   };
 
@@ -81,7 +81,9 @@ function StageCard({ stage, stageIndex, pipelineId, onSelectStep, selectedStepId
     <div className="glass-panel overflow-hidden animate-slide-in">
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] font-mono theme-text-muted w-6">S{stageIndex + 1}</span>
+          <span className="text-[10px] font-mono theme-text-muted tabular-nums w-6 text-right" title={`#${stageIndex + 1}`}>
+            {stageIndex + 1}
+          </span>
           <h3 className="text-sm font-semibold theme-text">{stage.name}</h3>
           <span className={`badge text-[10px] ${stage.executionMode === 'parallel' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
             {stage.executionMode === 'parallel' ? `⇉ ${t.editor.parallel}` : `→ ${t.editor.sequential}`}

@@ -63,5 +63,16 @@ node scripts/agentflow-smoke.mjs
 - 完整「运行」依赖本机已安装 `cursor-agent` / `claude` 等 CLI 及有效模型；无模型时可能长时间挂起或超时，不属于前端逻辑 bug。
 - 冒烟脚本 **不** 自动点击「浏览」或执行真实 CLI。
 
+## 已修复问题备忘（阶段 / 步骤命名）
+
+- **不再使用 S1、S2 作为阶段前缀**：编排编辑里阶段行仅显示顺序数字 `1、2…` 与阶段名称；新建阶段 / 步骤在未填写名称时使用 i18n 默认「阶段」/「步骤」（英文 UI 为 Phase / Step），与后端默认一致。
+- **模板 Markdown**：`src/shared/pipeline-markdown.ts` 统一解析/生成格式；模板导出含 **Depends On**，导入走同一解析逻辑。
+
+## 已修复问题备忘（运行白屏 / Unknown）
+
+- **运行后空白页**：若步骤 `tool` 字段缺失或非法，`TOOL_META[step]` 为 `undefined`，访问 `meta.tintColor` 会抛错导致整页白屏。已用 `safeToolMeta()` 兜底。
+- **工作目录以 `/` 结尾显示 Unknown**：`path.split('/').pop()` 在尾部斜杠时得到空串。已改为去尾部分隔符后再取最后一段目录名。
+- **勿在 `src/shared/` 提交 `types.js`**：会与 `types.ts` 冲突导致构建使用旧导出；已加入 `.gitignore`。
+
 ---
 *报告随版本更新；最后一次更新与实现同步生成。*
