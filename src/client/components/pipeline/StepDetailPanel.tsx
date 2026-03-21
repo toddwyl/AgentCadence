@@ -215,6 +215,14 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
               <span className="text-[10px] theme-text-muted">{t.stepDetail.promptHint}</span>
             )}
           </div>
+          {pipeline && Object.keys(pipeline.globalVariables ?? {}).length > 0 && (
+            <p className="text-[10px] theme-text-muted mb-1.5 font-mono">
+              {t.stepDetail.promptVarHint}{' '}
+              {Object.keys(pipeline.globalVariables ?? {}).map((k) => (
+                <span key={k} className="text-accent-glow/90 mr-1.5">{`{{${k}}}`}</span>
+              ))}
+            </p>
+          )}
           <textarea
             ref={textareaRef}
             className="input-field text-sm min-h-[120px] resize-y font-mono leading-relaxed w-full"

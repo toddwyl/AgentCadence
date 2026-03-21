@@ -5,7 +5,7 @@ import type {
   CLIProfile,
   RetryRecord,
 } from '../../shared/types.js';
-import { resolveAllSteps, stepHasCustomCommand } from '../../shared/types.js';
+import { resolveAllSteps, stepHasCustomCommand, interpolatePromptVariables } from '../../shared/types.js';
 import type { StepResult } from './tool-runner.js';
 import { getRunnerForTool } from './tool-runner.js';
 import { CommandRunner } from './command-runner.js';
@@ -66,32 +66,46 @@ function validateDAG(steps: ReturnType<typeof resolveAllSteps>) {
   }
 }
 
+function resolveStepWithVariables(
+  step: PipelineStep,
+  globalVariables: Record<string, string>
+): PipelineStep {
+  const vars = globalVariables ?? {};
+  return {
+    ...step,
+    prompt: interpolatePromptVariables(step.prompt, vars),
+    command: step.command ? interpolatePromptVariables(step.command, vars) : undefined,
+  };
+}
+
 async function executeStep(
   step: PipelineStep,
   stageID: string,
   workingDirectory: string,
   profile: CLIProfile,
   executionControl: ExecutionControl | null,
-  onOutputChunk: (chunk: string) => void
+  onOutputChunk: (chunk: string) => void,
+  globalVariables: Record<string, string>
 ): Promise<StepResult> {
+  const resolved = resolveStepWithVariables(step, globalVariables);
   const shouldTerminate = executionControl
     ? () => executionControl.shouldTerminateStep(stageID)
     : undefined;
 
   try {
-    if (stepHasCustomCommand(step)) {
+    if (stepHasCustomCommand(resolved)) {
       return await new CommandRunner().execute(
-        step, workingDirectory, profile, shouldTerminate, onOutputChunk
+        resolved, workingDirectory, profile, shouldTerminate, onOutputChunk
       );
     }
-    const runner = getRunnerForTool(step.tool);
+    const runner = getRunnerForTool(resolved.tool);
     return await runner.execute(
-      step, workingDirectory, profile, shouldTerminate, onOutputChunk
+      resolved, workingDirectory, profile, shouldTerminate, onOutputChunk
     );
   } catch (err) {
     if (err instanceof CLIError && err.code === 'CANCELLED') {
       return {
-        stepID: step.id,
+        stepID: resolved.id,
         exitCode: 130,
         output: '',
         error: 'Stopped by user',
@@ -99,7 +113,7 @@ async function executeStep(
       };
     }
     return {
-      stepID: step.id,
+      stepID: resolved.id,
       exitCode: -1,
       output: '',
       error: (err as Error).message,
@@ -129,7 +143,8 @@ async function executeStepWithRetry(
     retryRecords: RetryRecord[],
     failedAttempt: number,
     maxAttempts: number
-  ) => void
+  ) => void,
+  globalVariables: Record<string, string> = {}
 ): Promise<StepResult> {
   const failureMode = step.failureMode ?? 'retry';
   const maxAttempts = effectiveMaxAttempts(step);
@@ -144,7 +159,8 @@ async function executeStepWithRetry(
       workingDirectory,
       profile,
       executionControl,
-      onOutputChunk
+      onOutputChunk,
+      globalVariables
     );
 
     if (result.exitCode === 0 || result.cancelledByUser) {
@@ -203,6 +219,7 @@ export class DAGScheduler {
     const finalizedStatuses = new Map<string, StepStatus>();
     const allResults: StepResult[] = [];
     const workDir = pipeline.workingDirectory;
+    const globalVariables = pipeline.globalVariables ?? {};
 
     while (finalizedStatuses.size < allSteps.length) {
       if (executionControl?.isPipelineStopRequested()) {
@@ -268,7 +285,8 @@ export class DAGScheduler {
             profile,
             executionControl,
             (chunk) => onStepOutput(resolved.step.id, chunk),
-            onRetryProgress
+            onRetryProgress,
+            globalVariables
           )
         )
       );

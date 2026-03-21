@@ -3,6 +3,7 @@ import type { Pipeline, PipelineStage, PipelineStep, ToolType } from '@shared/ty
 import { TOOL_META, TOOL_TYPES, safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 import { StepDetailPanel } from './StepDetailPanel';
+import { PipelineGlobalVariables } from './PipelineGlobalVariables';
 
 export function PipelineEditor({ pipeline }: { pipeline: Pipeline }) {
   const { addStage, selectStep, selectedStepID, loadDemo, t } = useAppStore();
@@ -21,6 +22,7 @@ export function PipelineEditor({ pipeline }: { pipeline: Pipeline }) {
   return (
     <div className="flex h-full">
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <PipelineGlobalVariables pipeline={pipeline} />
         {pipeline.stages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
             <div className="w-16 h-16 rounded-2xl theme-bg-2 flex items-center justify-center mb-4">

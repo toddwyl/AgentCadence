@@ -32,6 +32,7 @@ router.post('/', (req: Request, res: Response) => {
     isAIGenerated: false,
     createdAt: new Date().toISOString(),
     runHistory: [],
+    globalVariables: {},
   };
   pipelines.push(pipeline);
   savePipelines(pipelines);
@@ -49,9 +50,16 @@ router.put('/:id', (req: Request, res: Response) => {
   const pipelines = loadPipelines();
   const idx = pipelines.findIndex((p) => p.id === req.params.id);
   if (idx === -1) { res.status(404).json({ error: 'Not found' }); return; }
-  const { name, workingDirectory } = req.body;
+  const { name, workingDirectory, globalVariables } = req.body as {
+    name?: string;
+    workingDirectory?: string;
+    globalVariables?: Record<string, string>;
+  };
   if (name !== undefined) pipelines[idx].name = name;
   if (workingDirectory !== undefined) pipelines[idx].workingDirectory = workingDirectory;
+  if (globalVariables !== undefined && typeof globalVariables === 'object' && globalVariables !== null) {
+    pipelines[idx].globalVariables = globalVariables;
+  }
   savePipelines(pipelines);
   res.json(pipelines[idx]);
 });
@@ -216,6 +224,14 @@ function pipelineToMarkdown(p: Pipeline): string {
   lines.push(`- **Created**: ${p.createdAt}`);
   if (p.isAIGenerated) lines.push('- **AI Generated**: Yes');
   lines.push('');
+  if (p.globalVariables && Object.keys(p.globalVariables).length > 0) {
+    lines.push('## Global variables');
+    lines.push('');
+    for (const [k, v] of Object.entries(p.globalVariables)) {
+      lines.push(`- **${k}**: ${v}`);
+    }
+    lines.push('');
+  }
 
   for (const stage of p.stages) {
     lines.push(`## ${stage.name} (${stage.executionMode})`);

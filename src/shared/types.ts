@@ -168,6 +168,17 @@ export interface Pipeline {
   isAIGenerated: boolean;
   createdAt: string;
   runHistory: PipelineRunRecord[];
+  /** Key-value pairs; reference in prompts/commands as {{key}} (identifier: letter/underscore + alphanumeric) */
+  globalVariables?: Record<string, string>;
+}
+
+/** Replace `{{varName}}` with values from `vars`. Unknown names stay unchanged. */
+export function interpolatePromptVariables(text: string, vars: Record<string, string> | undefined): string {
+  if (!text) return text;
+  if (!vars || Object.keys(vars).length === 0) return text;
+  return text.replace(/\{\{([a-zA-Z_][a-zA-Z0-9_]*)\}\}/g, (full, key: string) =>
+    Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : full
+  );
 }
 
 export interface PipelineTemplate {

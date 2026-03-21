@@ -91,6 +91,7 @@ function planResponseToPipeline(plan: PlanResponse, workingDirectory: string): P
     isAIGenerated: true,
     createdAt: new Date().toISOString(),
     runHistory: [],
+    globalVariables: {},
   };
 }
 

@@ -108,6 +108,7 @@ router.post('/:templateId/create-pipeline', (req: Request, res: Response) => {
     isAIGenerated: false,
     createdAt: new Date().toISOString(),
     runHistory: [],
+    globalVariables: {},
   };
 
   const pipelines = loadPipelines();
