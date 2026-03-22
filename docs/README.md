@@ -1,5 +1,5 @@
 # Documentation assets
 
-PNG previews referenced from the root [`README.md`](../README.md). Filenames match the areas of the app (editor, orchestration, monitor, settings, templates, insights, AI generator).
+- **`demo.gif`** — README preview walkthrough (regenerate with `npm run capture:demo-gif` in the repo root while the server is running).
 
-Regenerate with `node scripts/capture-readme-screens.mjs` while the app is running.
+Requires **Chromium** (via Playwright) and **ffmpeg** on `PATH`.

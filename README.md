@@ -57,35 +57,13 @@ Typical use cases:
 
 ## Preview
 
-UI captured in **English** with the **dark** theme. To regenerate images locally, run the server (`npm start`, default `http://localhost:3712`) and execute `node scripts/capture-readme-screens.mjs`.
+<p align="center">
+  <img src="docs/demo.gif" alt="AgentCadence: pipeline editor, orchestration view, run monitor, settings, templates, insights, AI pipeline generator" width="960" />
+</p>
 
-**Pipeline editor** — stages, steps, working directory in the header.
+Screen recording in **English** and **dark** theme: pipeline editor → **Orchestration View** → **Run Monitor** → **Settings** → **Templates** → **Insights** → **AI Generate**.
 
-![Pipeline editor](docs/pipeline-editor.png)
-
-**Orchestration view** — flowchart-style DAG overview.
-
-![Orchestration view](docs/orchestration-view.png)
-
-**Run monitor** — live run and history.
-
-![Run monitor](docs/run-monitor.png)
-
-**Settings** — CLI paths, theme, locale, planner options.
-
-![Settings](docs/settings.png)
-
-**Templates** — save and reuse pipeline Markdown.
-
-![Templates](docs/templates.png)
-
-**Data insights** — run statistics and model usage (when available).
-
-![Data insights](docs/insights.png)
-
-**AI Pipeline Generator** — natural-language draft pipelines.
-
-![AI Pipeline Generator](docs/ai-generate.png)
+To regenerate `docs/demo.gif`, start the app (`npm start`, default `http://localhost:3712`), install [`ffmpeg`](https://ffmpeg.org/) on your machine, then run `npm run capture:demo-gif` (or `node scripts/capture-readme-demo-gif.mjs` with optional `BASE_URL`).
 
 ---
 
