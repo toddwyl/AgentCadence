@@ -15,7 +15,7 @@
 
 - [Overview](#overview)
 - [Features](#features)
-- [Screenshots & demo](#screenshots--demo)
+- [Preview](#preview)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Running](#running)
@@ -24,6 +24,7 @@
 - [Automation & tests](#automation--tests)
 - [Development](#development)
 - [Related projects](#related-projects)
+- [Credits](#credits)
 - [License](#license)
 
 ---
@@ -54,9 +55,9 @@ Typical use cases:
 
 ---
 
-## Screenshots & demo
+## Preview
 
-Captured with the UI in **English** and **dark** theme (`scripts/capture-readme-screens.mjs`, server running — default `http://localhost:3712`).
+UI captured in **English** with the **dark** theme. To regenerate images locally, run the server (`npm start`, default `http://localhost:3712`) and execute `node scripts/capture-readme-screens.mjs`.
 
 **Pipeline editor** — stages, steps, working directory in the header.
 
@@ -207,6 +208,12 @@ Stack: **React**, **Vite**, **Express**, **WebSocket**, **TypeScript** shared ty
 ## Related projects
 
 - **[AgentCrew](https://github.com/qingni/AgentCrew)** — native macOS pipeline orchestration (conceptual predecessor).
+
+---
+
+## Credits
+
+**AgentCadence** is inspired by [AgentCrew](https://github.com/qingni/AgentCrew). Part of the logic is based on their implementation and has been rewritten in TypeScript for this project.
 
 ---
 
