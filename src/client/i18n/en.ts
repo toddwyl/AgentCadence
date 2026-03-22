@@ -1,8 +1,8 @@
 export const en = {
   app: {
-    name: 'AgentFlow',
+    name: 'AgentCadence',
     subtitle: 'Orchestration Workbench',
-    welcome: 'Welcome to AgentFlow',
+    welcome: 'Welcome to AgentCadence',
     welcomeDesc: 'Create a pipeline or use AI to generate one from a natural language description.',
   },
   sidebar: {
@@ -114,6 +114,7 @@ export const en = {
     title: 'AI Pipeline Generator',
     subtitle: 'Describe your task and let AI build the pipeline',
     workingDir: 'Working Directory',
+    workDirPlaceholder: 'e.g. ~/work/myproject or /Users/you/work/myproject',
     taskDesc: 'Task Description',
     taskPlaceholder: "Describe what you want to accomplish, e.g.: 'Add JWT authentication with login and register endpoints, include unit tests'",
     generating: 'Generating...',

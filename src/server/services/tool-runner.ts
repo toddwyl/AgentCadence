@@ -4,7 +4,7 @@ import type {
   ToolType,
   RetryRecord,
 } from '../../shared/types.js';
-import { buildToolArguments, profileConfigForTool } from '../../shared/types.js';
+import { buildToolArguments, normalizeCursorModelForCLI, profileConfigForTool } from '../../shared/types.js';
 import { CLIRunner, type CLIResult } from './cli-runner.js';
 
 export interface StepResult {
@@ -50,7 +50,12 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
     toolType: tool,
     async execute(step, workingDirectory, profile, shouldTerminate, onOutputChunk) {
       const config = profileConfigForTool(profile, tool);
-      const args = buildToolArguments(config, step.prompt, step.model, workingDirectory);
+      const args = buildToolArguments(
+        config,
+        step.prompt,
+        normalizeCursorModelForCLI(step.model, step.tool),
+        workingDirectory
+      );
       const result = await cli.run({
         command: config.executable,
         args,

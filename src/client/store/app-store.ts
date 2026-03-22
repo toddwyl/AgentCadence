@@ -16,6 +16,23 @@ import { getTranslations } from '../i18n';
 
 export type Theme = 'dark' | 'light';
 
+/** Prefer `agentcadence-*`; fall back to `agentline-*` / `agentflow-*` from older builds. */
+function readStoredTheme(): Theme {
+  const v =
+    localStorage.getItem('agentcadence-theme') ??
+    localStorage.getItem('agentline-theme') ??
+    localStorage.getItem('agentflow-theme');
+  return v === 'light' || v === 'dark' ? v : 'dark';
+}
+
+function readStoredLocale(): Locale {
+  const v =
+    localStorage.getItem('agentcadence-locale') ??
+    localStorage.getItem('agentline-locale') ??
+    localStorage.getItem('agentflow-locale');
+  return v === 'en' || v === 'zh' ? v : 'zh';
+}
+
 interface ProjectGroup {
   workingDirectory: string;
   displayName: string;
@@ -118,7 +135,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   planningPhase: null,
   planningLogs: '',
   profile: null,
-  llmConfig: { model: 'opus-4.6', customPolicy: '' },
+  llmConfig: { model: 'auto', customPolicy: '' },
   notificationSettings: {
     isEnabled: false, notifyOnCompleted: true, notifyOnFailed: true,
     notifyOnCancelled: true, playSound: true,
@@ -127,9 +144,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   showAutoPlanner: false,
   showAnalytics: false,
   showTemplates: false,
-  theme: (localStorage.getItem('agentflow-theme') as Theme) || 'dark',
-  locale: (localStorage.getItem('agentflow-locale') as Locale) || 'zh',
-  t: getTranslations((localStorage.getItem('agentflow-locale') as Locale) || 'zh'),
+  theme: readStoredTheme(),
+  locale: readStoredLocale(),
+  t: getTranslations(readStoredLocale()),
 
   selectedPipeline: () => {
     const { pipelines, selectedPipelineID } = get();
@@ -353,12 +370,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShowAnalytics: (v) => set({ showAnalytics: v }),
   setShowTemplates: (v) => set({ showTemplates: v }),
   setTheme: (theme) => {
-    localStorage.setItem('agentflow-theme', theme);
+    localStorage.setItem('agentcadence-theme', theme);
+    localStorage.removeItem('agentline-theme');
+    localStorage.removeItem('agentflow-theme');
     document.documentElement.setAttribute('data-theme', theme);
     set({ theme });
   },
   setLocale: (locale) => {
-    localStorage.setItem('agentflow-locale', locale);
+    localStorage.setItem('agentcadence-locale', locale);
+    localStorage.removeItem('agentline-locale');
+    localStorage.removeItem('agentflow-locale');
     set({ locale, t: getTranslations(locale) });
   },
 }));

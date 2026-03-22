@@ -37,5 +37,5 @@ const server = createServer(app);
 initWebSocket(server);
 
 server.listen(PORT, () => {
-  console.log(`\n  🚀 AgentFlow server running at http://localhost:${PORT}\n`);
+  console.log(`\n  🚀 AgentCadence server running at http://localhost:${PORT}\n`);
 });

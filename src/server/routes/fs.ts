@@ -10,7 +10,7 @@ router.get('/home', (_req: Request, res: Response) => {
 });
 
 /**
- * Opens a native folder picker on the machine where the AgentFlow server runs.
+ * Opens a native folder picker on the machine where the AgentCadence server runs.
  * macOS: osascript, Windows: PowerShell FolderBrowserDialog, Linux: zenity / kdialog.
  */
 router.post('/pick-folder', (_req: Request, res: Response) => {

@@ -14,7 +14,26 @@ import {
   DEFAULT_NOTIFICATION_SETTINGS,
 } from '../../shared/types.js';
 
-const DATA_DIR = path.join(os.homedir(), '.agentflow');
+const LEGACY_AGENTFLOW = path.join(os.homedir(), '.agentflow');
+const LEGACY_AGENTLINE = path.join(os.homedir(), '.agentline');
+const DATA_DIR = path.join(os.homedir(), '.agentcadence');
+
+/** One-time rename: prefer newest dir; migrate from AgentLine / AgentFlow if needed. */
+function migrateDataDirFromLegacy() {
+  try {
+    if (fs.existsSync(DATA_DIR)) return;
+    if (fs.existsSync(LEGACY_AGENTLINE)) {
+      fs.renameSync(LEGACY_AGENTLINE, DATA_DIR);
+      return;
+    }
+    if (fs.existsSync(LEGACY_AGENTFLOW)) {
+      fs.renameSync(LEGACY_AGENTFLOW, DATA_DIR);
+    }
+  } catch {
+    /* ignore e.g. cross-device rename */
+  }
+}
+migrateDataDirFromLegacy();
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) {

@@ -1,8 +1,8 @@
 export const zh = {
   app: {
-    name: 'AgentFlow',
+    name: 'AgentCadence',
     subtitle: '编排工作台',
-    welcome: '欢迎使用 AgentFlow',
+    welcome: '欢迎使用 AgentCadence',
     welcomeDesc: '创建一个 Pipeline 或使用 AI 从自然语言描述生成。',
   },
   sidebar: {
@@ -114,6 +114,7 @@ export const zh = {
     title: 'AI Pipeline 生成器',
     subtitle: '描述任务，让 AI 构建 Pipeline',
     workingDir: '工作目录',
+    workDirPlaceholder: '例如 ~/work/myproject 或 /Users/you/work/myproject',
     taskDesc: '任务描述',
     taskPlaceholder: "描述你想完成的任务，例如：'添加 JWT 认证，包含登录和注册接口以及单元测试'",
     generating: '生成中...',

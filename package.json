@@ -1,7 +1,7 @@
 {
-  "name": "agentflow",
+  "name": "agentcadence",
   "version": "1.0.0",
-  "description": "A web-based universal CLI orchestration workbench — TypeScript rewrite of AgentCrew",
+  "description": "AgentCadence — web-based universal CLI orchestration workbench (TypeScript; evolved from AgentCrew)",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
@@ -12,7 +12,9 @@
     "build:server": "tsc -p tsconfig.server.json",
     "start": "node dist/server/index.js",
     "lint": "eslint src --ext .ts,.tsx",
-    "test:smoke": "node scripts/agentflow-smoke.mjs"
+    "test:smoke": "node scripts/agentcadence-smoke.mjs",
+    "test:e2e-run": "node scripts/agentcadence-e2e-full-run.mjs",
+    "test:e2e-cursor": "node scripts/agentcadence-e2e-cursor-agent.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

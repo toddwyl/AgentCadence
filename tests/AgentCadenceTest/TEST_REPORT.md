@@ -1,10 +1,10 @@
-# AgentFlow 测试报告 (AgentFlowTest)
+# AgentCadence 测试报告 (AgentCadenceTest)
 
 ## 测试环境
 
-- 项目路径: `AgentFlow`
+- 项目路径: 仓库根目录（原 AgentFlow / AgentLine 仓库可重命名为 AgentCadence）
 - 构建: `npm run build` — **通过** (tsc + vite)
-- API 冒烟: `node scripts/agentflow-smoke.mjs` — 需在 **后端已启动** 时执行（默认 `http://localhost:3712`）
+- API 冒烟: `node scripts/agentcadence-smoke.mjs` — 需在 **后端已启动** 时执行（默认 `http://localhost:3712`）
 
 ## 本次需求验证
 
@@ -16,7 +16,7 @@
 
 ### 文件夹选择器说明
 
-- 对话框由 **Node 服务端** 调用系统命令打开，仅在 **本机访问** AgentFlow 且浏览器与后端同机时可用。
+- 对话框由 **Node 服务端** 调用系统命令打开，仅在 **本机访问** AgentCadence 且浏览器与后端同机时可用。
 - macOS: `osascript`；Windows: PowerShell `FolderBrowserDialog`；Linux: `zenity` 或 `kdialog`。
 
 ## 自动化冒烟脚本结果
@@ -24,8 +24,8 @@
 在运行 `npm run dev` 或 `npm start` 后执行：
 
 ```bash
-cd AgentFlow
-node scripts/agentflow-smoke.mjs
+cd <仓库根目录>
+node scripts/agentcadence-smoke.mjs
 ```
 
 脚本会校验：`GET /pipelines`、`GET /fs/home`、创建空 Pipeline、列出模板、（若有模板）从模板创建、加载 demo 并检查步骤工具均为 `cursor`。

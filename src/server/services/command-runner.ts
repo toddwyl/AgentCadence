@@ -3,6 +3,7 @@ import {
   stepHasCustomCommand,
   profileConfigForTool,
   buildCommandTemplate,
+  normalizeCursorModelForCLI,
 } from '../../shared/types.js';
 import { CLIRunner, CLIError } from './cli-runner.js';
 import type { StepResult } from './tool-runner.js';
@@ -15,7 +16,7 @@ function effectiveCommand(step: PipelineStep, profile: CLIProfile): string {
   const trimmed = step.command?.trim() || '';
   if (trimmed) return trimmed;
   const config = profileConfigForTool(profile, step.tool);
-  return buildCommandTemplate(config, step.model);
+  return buildCommandTemplate(config, normalizeCursorModelForCLI(step.model, step.tool));
 }
 
 async function resolveExecutablePath(executable: string, cli: CLIRunner): Promise<string | null> {
@@ -122,7 +123,10 @@ export class CommandRunner {
     }
 
     const stderr = result.stderr.trim();
-    const error = stderr || `Command exited with code ${result.exitCode}`;
+    const error =
+      result.exitCode === 0
+        ? stderr
+        : stderr || `Command exited with code ${result.exitCode}`;
 
     return {
       stepID: step.id,

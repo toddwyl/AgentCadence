@@ -1,5 +1,5 @@
 // ============================================================
-// AgentFlow — Shared Type Definitions
+// AgentCadence — Shared Type Definitions
 // ============================================================
 
 // MARK: - ToolType
@@ -48,7 +48,7 @@ export const TOOL_META: Record<ToolType, {
   },
   cursor: {
     displayName: 'Cursor',
-    defaultModels: ['opus-4.6', 'gpt-5', 'sonnet-4'],
+    defaultModels: ['auto', 'gpt-5.2-codex', 'claude-4.6-sonnet-medium'],
     iconName: 'mouse-pointer',
     tintColor: '#3b82f6',
   },
@@ -257,6 +257,15 @@ export function profileConfigForTool(profile: CLIProfile, tool: ToolType): ToolC
   return profile[tool];
 }
 
+/**
+ * Older AgentCadence / AgentLine / AgentFlow builds defaulted Cursor steps to `opus-4.6`, which current cursor-agent builds may reject.
+ * Treat as unset so `config.defaultModel` (e.g. `auto`) applies.
+ */
+export function normalizeCursorModelForCLI(model: string | undefined, tool: ToolType): string | undefined {
+  if (tool === 'cursor' && model === 'opus-4.6') return undefined;
+  return model;
+}
+
 export function buildToolArguments(
   config: ToolCLIConfig,
   prompt: string,
@@ -319,7 +328,7 @@ export const DEFAULT_CLI_PROFILE: CLIProfile = {
     promptFlag: '-p',
     modelFlag: '--model',
     promptMode: 'inline',
-    defaultModel: 'opus-4.6',
+    defaultModel: 'auto',
   },
   codex: {
     executable: 'codex',
@@ -340,7 +349,7 @@ export const DEFAULT_CLI_PROFILE: CLIProfile = {
     promptFlag: '-p',
     modelFlag: '--model',
     promptMode: 'inline',
-    defaultModel: 'opus-4.6',
+    defaultModel: 'auto',
   },
 };
 
@@ -394,7 +403,7 @@ export interface LLMConfig {
 }
 
 export const DEFAULT_LLM_CONFIG: LLMConfig = {
-  model: 'opus-4.6',
+  model: 'auto',
   customPolicy: '',
 };
 

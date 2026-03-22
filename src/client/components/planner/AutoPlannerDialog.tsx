@@ -28,7 +28,7 @@ export function AutoPlannerDialog() {
           <div>
             <label className="block text-xs theme-text-tertiary mb-1.5">{t.planner.workingDir}</label>
             <div className="flex gap-2">
-              <input className="input-field text-sm font-mono flex-1 min-w-0" placeholder="e.g. /Users/you/work/myproject" value={workDir} onChange={(e) => setWorkDir(e.target.value)} disabled={isPlanningInProgress} />
+              <input className="input-field text-sm font-mono flex-1 min-w-0" placeholder={t.planner.workDirPlaceholder} value={workDir} onChange={(e) => setWorkDir(e.target.value)} disabled={isPlanningInProgress} />
               <button type="button" disabled={isPlanningInProgress} className="btn-ghost text-xs shrink-0 px-2" onClick={async () => { const p = await pickWorkingDirectory(); if (p) setWorkDir(p); }}>{t.header.browseFolder}</button>
             </div>
           </div>
