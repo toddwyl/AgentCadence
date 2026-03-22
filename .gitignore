@@ -1,5 +1,8 @@
 node_modules/
 dist/
+
+# SpecStory / Cursor local project metadata
+.specstory/
 # stray JS sibling of types.ts breaks Vite resolution
 src/shared/types.js
 .DS_Store
