@@ -3,6 +3,9 @@ dist/
 
 # SpecStory / Cursor local project metadata
 .specstory/
+
+# Local test reports / artifacts (not for version control)
+tests/AgentCadenceTest/
 # stray JS sibling of types.ts breaks Vite resolution
 src/shared/types.js
 .DS_Store

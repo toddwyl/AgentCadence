@@ -22,7 +22,6 @@
 - [Configuration](#configuration)
 - [Using AgentCadence](#using-agentcadence)
 - [Automation & tests](#automation--tests)
-- [Data & migration](#data--migration)
 - [Development](#development)
 - [Related projects](#related-projects)
 - [License](#license)
@@ -57,24 +56,35 @@ Typical use cases:
 
 ## Screenshots & demo
 
-> **Add your own media:** place files under [`docs/`](docs/) and reference them from here. Recommended assets:
->
-> | File | Purpose |
-> |------|---------|
-> | `docs/demo.gif` | Main walkthrough (editor → run → monitor) |
-> | `docs/pipeline-editor.png` | Pipeline / stage / step UI |
-> | `docs/run-monitor.png` | Run Monitor & history |
-> | `docs/settings-cli.png` | Settings & CLI detection |
+Captured with the UI in **English** and **dark** theme (`scripts/capture-readme-screens.mjs`, server running — default `http://localhost:3712`).
 
-After you add `docs/demo.gif`, uncomment the line below (or push the file and keep the image tag).
+**Pipeline editor** — stages, steps, working directory in the header.
 
-<!--
-<p align="center">
-  <img src="https://github.com/toddwyl/AgentCadence/raw/main/docs/demo.gif" alt="AgentCadence demo GIF" width="800" />
-</p>
--->
+![Pipeline editor](docs/pipeline-editor.png)
 
-**Placeholder (until `docs/demo.gif` exists):** open the app, create or select a pipeline, set **Working directory**, then **Run** and open **Run Monitor** to see live status and saved output.
+**Orchestration view** — flowchart-style DAG overview.
+
+![Orchestration view](docs/orchestration-view.png)
+
+**Run monitor** — live run and history.
+
+![Run monitor](docs/run-monitor.png)
+
+**Settings** — CLI paths, theme, locale, planner options.
+
+![Settings](docs/settings.png)
+
+**Templates** — save and reuse pipeline Markdown.
+
+![Templates](docs/templates.png)
+
+**Data insights** — run statistics and model usage (when available).
+
+![Data insights](docs/insights.png)
+
+**AI Pipeline Generator** — natural-language draft pipelines.
+
+![AI Pipeline Generator](docs/ai-generate.png)
 
 ---
 
@@ -137,15 +147,13 @@ Open the URL printed by the server in your browser.
 | Variable | Description |
 |----------|-------------|
 | `PORT` | HTTP port for `npm start` (default **3712**). |
-| `AGENTCADENCE_URL` | Base URL for smoke/E2E scripts (optional). Older names `AGENTLINE_URL` / `AGENTFLOW_URL` still work. |
+| `AGENTCADENCE_URL` | Base URL for smoke/E2E scripts (optional). |
 
 ### CLI profiles (in the app)
 
 1. Open **Settings**.
 2. Use **Detect environment** to fill paths for **cursor-agent**, **codex**, **claude** (runs on the server machine).
 3. Configure **Planner model** and optional **custom planning policy** for **AI Generate**.
-
-Data is stored under **`~/.agentcadence`** (see [Data & migration](#data--migration)).
 
 ### Folder picker
 
@@ -180,26 +188,7 @@ npm run test:e2e-run      # shell-only pipeline (fast, no LLM)
 npm run test:e2e-cursor   # real cursor-agent step (requires CLI + network)
 ```
 
-Smoke/E2E scripts accept `AGENTCADENCE_URL` (and legacy `AGENTLINE_URL` / `AGENTFLOW_URL`).
-
-More detail: [`tests/AgentCadenceTest/TEST_REPORT.md`](tests/AgentCadenceTest/TEST_REPORT.md), [`tests/AgentCadenceTest/E2E_REPORT.md`](tests/AgentCadenceTest/E2E_REPORT.md).
-
----
-
-## Data & migration
-
-Server-side state (pipelines, CLI profile, planner config, notifications, run history) lives in:
-
-```text
-~/.agentcadence/
-```
-
-On first startup, if `~/.agentcadence` does not exist, the server **renames** (in order):
-
-1. `~/.agentline` → `~/.agentcadence`
-2. else `~/.agentflow` → `~/.agentcadence`
-
-The browser stores theme/locale under **`agentcadence-*`** keys in `localStorage`, with fallback from older **`agentline-*`** / **`agentflow-*`** keys.
+Smoke/E2E scripts accept `AGENTCADENCE_URL` (optional; default `http://localhost:3712`). Running them may write Markdown summaries under `tests/AgentCadenceTest/` on your machine; that folder is not tracked in git.
 
 ---
 
