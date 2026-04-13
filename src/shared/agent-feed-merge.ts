@@ -36,6 +36,7 @@ function mergeToolInto(
   if (event.summary.length > target.summary.length) target.summary = event.summary;
   if (event.ok !== undefined) target.ok = event.ok;
   if (event.resultPreview !== undefined) target.resultPreview = event.resultPreview;
+  if (event.gitDiffUnified !== undefined) target.gitDiffUnified = event.gitDiffUnified;
 }
 
 /** Open tool with same toolName and detail (strict). */
@@ -74,6 +75,36 @@ function findSingleOpenToolByName(next: AgentFeedItem[], toolName: string | unde
   return count === 1 ? found : -1;
 }
 
+/**
+ * Cursor 等 CLI 常对同一工具连发两条 completed；此前只合并到「未完成」卡，第二条会再 push 一条重复卡片。
+ * 从尾部找最后一条同一次调用的工具（含已 completed），用于吞并重复的 completed/update。
+ */
+function findLastToolMergeTarget(
+  next: AgentFeedItem[],
+  incoming: AgentFeedItem & { kind: 'tool' }
+): number {
+  const key = toolStableKey(incoming);
+  if (key.length > 0) {
+    for (let i = next.length - 1; i >= 0; i--) {
+      const it = next[i];
+      if (it.kind === 'tool' && toolStableKey(it) === key) return i;
+    }
+  }
+  if (incoming.toolName && incoming.detail !== undefined && incoming.detail !== '') {
+    for (let i = next.length - 1; i >= 0; i--) {
+      const it = next[i];
+      if (
+        it.kind === 'tool' &&
+        it.toolName === incoming.toolName &&
+        it.detail === incoming.detail
+      ) {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
+
 function mergeTail(
   next: AgentFeedItem[],
   kind: 'assistant' | 'thinking',
@@ -109,10 +140,25 @@ export function applyAgentStreamEvent(
       break;
     }
     case 'assistant_delta':
-      if (event.text) mergeTail(next, 'assistant', event.text);
+      if (event.text) {
+        const tail = next[next.length - 1];
+        const trimmed = event.text.trim();
+        // 整段重复播报（常见于流里重发同一条 assistant）
+        if (tail?.kind === 'assistant' && trimmed.length > 0 && tail.text.trim() === trimmed) {
+          break;
+        }
+        mergeTail(next, 'assistant', event.text);
+      }
       break;
     case 'thinking_delta':
-      if (event.text) mergeTail(next, 'thinking', event.text);
+      if (event.text) {
+        const tail = next[next.length - 1];
+        const trimmed = event.text.trim();
+        if (tail?.kind === 'thinking' && trimmed.length > 0 && tail.text.trim() === trimmed) {
+          break;
+        }
+        mergeTail(next, 'thinking', event.text);
+      }
       break;
     case 'tool': {
       const incoming: AgentFeedItem = {
@@ -124,6 +170,7 @@ export function applyAgentStreamEvent(
         callId: event.callId,
         ...(event.ok !== undefined ? { ok: event.ok } : {}),
         ...(event.resultPreview !== undefined ? { resultPreview: event.resultPreview } : {}),
+        ...(event.gitDiffUnified !== undefined ? { gitDiffUnified: event.gitDiffUnified } : {}),
       };
       const key = toolStableKey(incoming);
       const last = next[next.length - 1];
@@ -149,6 +196,23 @@ export function applyAgentStreamEvent(
             mergeToolInto(open, event);
             trimFeed(next);
             break;
+          }
+        }
+      }
+
+      if (event.phase === 'completed' || event.phase === 'update') {
+        const k = findLastToolMergeTarget(next, incoming);
+        if (k >= 0) {
+          const target = next[k];
+          if (target.kind === 'tool') {
+            const dupCompletedLine =
+              event.phase === 'completed' && target.phase === 'completed';
+            const intoInFlight = target.phase !== 'completed';
+            if (dupCompletedLine || intoInFlight) {
+              mergeToolInto(target, event);
+              trimFeed(next);
+              break;
+            }
           }
         }
       }

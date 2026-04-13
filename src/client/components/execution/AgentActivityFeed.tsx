@@ -22,6 +22,30 @@ function dedupeConsecutiveSessionInits(items: AgentFeedItem[]): AgentFeedItem[] 
   return out;
 }
 
+/** 展示层兜底：相邻且语义完全相同的助手气泡 / 工具卡（合并层漏网时） */
+function dedupeAdjacentDuplicateBlocks(items: AgentFeedItem[]): AgentFeedItem[] {
+  if (items.length < 2) return items;
+  const out: AgentFeedItem[] = [];
+  for (const it of items) {
+    const prev = out[out.length - 1];
+    if (it.kind === 'assistant' && prev?.kind === 'assistant' && it.text.trim() === prev.text.trim()) {
+      continue;
+    }
+    if (it.kind === 'tool' && prev?.kind === 'tool' && it.phase === 'completed' && prev.phase === 'completed') {
+      const sameCall = it.callId && prev.callId && it.callId === prev.callId;
+      const sameTarget =
+        it.toolName &&
+        it.detail !== undefined &&
+        it.detail !== '' &&
+        it.toolName === prev.toolName &&
+        it.detail === prev.detail;
+      if (sameCall || sameTarget) continue;
+    }
+    out.push(it);
+  }
+  return out;
+}
+
 export type AgentActivityFeedLabels = {
   thinking: string;
   tool: string;
@@ -31,6 +55,7 @@ export type AgentActivityFeedLabels = {
   toolPhaseRunning: string;
   toolPhaseDone: string;
   toolResult: string;
+  toolGitDiff: string;
   todoTitle: string;
 };
 
@@ -85,7 +110,10 @@ export function AgentActivityFeed({
   const [openTools, setOpenTools] = useState<Record<number, boolean>>({});
   const [openTodos, setOpenTodos] = useState<Record<number, boolean>>({});
 
-  const displayItems = useMemo(() => dedupeConsecutiveSessionInits(items), [items]);
+  const displayItems = useMemo(
+    () => dedupeAdjacentDuplicateBlocks(dedupeConsecutiveSessionInits(items)),
+    [items]
+  );
 
   useEffect(() => {
     if (!isLive || !bottomRef.current) return;
@@ -271,6 +299,17 @@ export function AgentActivityFeed({
                         >
                           {item.resultPreview}
                         </div>
+                      </div>
+                    ) : null}
+                    {item.gitDiffUnified ? (
+                      <div className="mt-2">
+                        <div className="text-[10px] font-medium theme-text-muted mb-1">{labels.toolGitDiff}</div>
+                        <pre
+                          className="text-[10px] font-mono rounded-md p-2 border border-[var(--color-border)] theme-bg-0 theme-text-secondary whitespace-pre overflow-x-auto max-h-56 overflow-y-auto leading-snug"
+                          tabIndex={0}
+                        >
+                          {item.gitDiffUnified}
+                        </pre>
                       </div>
                     ) : null}
                   </div>

@@ -3,6 +3,8 @@
  * Set AGENTCADENCE_CURSOR_RAW_STREAM_JSON=1 to pass through raw bytes.
  */
 
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
 import type { AgentStreamUiEvent, AgentTodoSnapshotItem } from '../../../shared/types.js';
 import { CYN, DIM, GRN, RST, YLW } from './ansi.js';
 import { JsonlLineBuffer } from './jsonl-line-buffer.js';
@@ -15,7 +17,7 @@ function readTextBlocks(msg: Record<string, unknown> | undefined): string {
   for (const block of content) {
     if (block && typeof block === 'object' && 'text' in block) {
       const b = block as Record<string, unknown>;
-      if (b.type === 'thinking') continue;
+      if (b.type === 'thinking' || b.type === 'reasoning') continue;
       const t = b.text;
       if (typeof t === 'string') parts.push(t);
     }
@@ -23,6 +25,7 @@ function readTextBlocks(msg: Record<string, unknown> | undefined): string {
   return parts.join('');
 }
 
+/** Cursor / API variants: `thinking`, `text`, or string `content` on thinking/reasoning blocks. */
 function readThinkingBlocks(msg: Record<string, unknown> | undefined): string {
   const content = msg?.content;
   if (!Array.isArray(content)) return '';
@@ -31,10 +34,24 @@ function readThinkingBlocks(msg: Record<string, unknown> | undefined): string {
     if (!block || typeof block !== 'object') continue;
     const b = block as Record<string, unknown>;
     const ty = b.type;
-    if (ty === 'thinking' && typeof b.thinking === 'string') {
-      const s = b.thinking.trim();
-      if (s) parts.push(s);
+    if (ty === 'thinking' || ty === 'reasoning') {
+      let piece = '';
+      if (typeof b.thinking === 'string') piece = b.thinking.trim();
+      else if (typeof b.text === 'string') piece = b.text.trim();
+      else if (typeof b.content === 'string') piece = b.content.trim();
+      if (piece) parts.push(piece);
     }
+  }
+  return parts.join('\n');
+}
+
+function readMessageLevelThinking(msg: Record<string, unknown> | undefined): string {
+  if (!msg) return '';
+  const keys = ['thinking', 'reasoning', 'reasoning_content'] as const;
+  const parts: string[] = [];
+  for (const k of keys) {
+    const v = msg[k];
+    if (typeof v === 'string' && v.trim()) parts.push(v.trim());
   }
   return parts.join('\n');
 }
@@ -171,6 +188,49 @@ function canonicalToolNameForMatch(name: string): string {
     .toLowerCase();
 }
 
+const GIT_DIFF_MAX_BYTES = 96_000;
+
+const EDIT_LIKE_TOOLS = new Set([
+  'write',
+  'search_replace',
+  'str_replace',
+  'edit_file',
+  'edit',
+  'apply_patch',
+  'multi_edit',
+  'notebook_edit',
+  'delete_file',
+  'move_file',
+]);
+
+function isEditLikeTool(toolName: string): boolean {
+  return EDIT_LIKE_TOOLS.has(canonicalToolNameForMatch(toolName));
+}
+
+function filePathUnderCwd(cwd: string, filePath: string): string | undefined {
+  const absCwd = path.resolve(cwd);
+  const absFile = path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(absCwd, filePath);
+  const rel = path.relative(absCwd, absFile);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return undefined;
+  return rel;
+}
+
+function tryGitDiffUnified(cwd: string, filePath: string): string | undefined {
+  const rel = filePathUnderCwd(cwd, filePath);
+  if (!rel) return undefined;
+  try {
+    const out = execFileSync('git', ['diff', '--no-color', '--', rel], {
+      cwd,
+      encoding: 'utf-8',
+      maxBuffer: GIT_DIFF_MAX_BYTES,
+    });
+    const s = String(out).replace(/\r\n/g, '\n').trimEnd();
+    return s.length > 0 ? s : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function normalizeTodoStatus(raw: unknown): AgentTodoSnapshotItem['status'] {
   const x = String(raw ?? '')
     .toLowerCase()
@@ -242,7 +302,10 @@ export class CursorStreamJsonPrettifier {
   /** started → completed may omit call_id on one side; reuse id from the other line. */
   private toolCallIdHints = new Map<string, string>();
 
-  constructor(private readonly onUiEvent?: (e: AgentStreamUiEvent) => void) {}
+  constructor(
+    private readonly onUiEvent?: (e: AgentStreamUiEvent) => void,
+    private readonly workingDirectory?: string
+  ) {}
 
   private ui(e: AgentStreamUiEvent): void {
     this.onUiEvent?.(e);
@@ -319,10 +382,21 @@ export class CursorStreamJsonPrettifier {
     if (t === 'assistant') {
       const msg = obj.message as Record<string, unknown> | undefined;
       this.emitToolUseBlocks(msg, emit);
+      const topThink = readMessageLevelThinking(msg);
+      if (topThink) this.emitThinkingDelta(topThink, emit);
       const thinking = readThinkingBlocks(msg);
       if (thinking) this.emitThinkingDelta(thinking, emit);
       const text = readTextBlocks(msg);
-      if (text) this.emitAssistantTextDelta(text, emit);
+      if (text) {
+        const tTrim = text.trim();
+        const thinkCombined = [topThink.trim(), thinking.trim()].filter(Boolean).join('\n').trim();
+        const dupOfThinking =
+          thinkCombined.length > 0 &&
+          (tTrim === thinkCombined || tTrim === topThink.trim() || tTrim === thinking.trim());
+        if (!dupOfThinking) {
+          this.emitAssistantTextDelta(text, emit);
+        }
+      }
       return;
     }
 
@@ -352,6 +426,14 @@ export class CursorStreamJsonPrettifier {
         const extra = extractToolResultPreview(obj);
         if (extra.preview !== undefined) toolPayload.resultPreview = extra.preview;
         if (extra.ok === false) toolPayload.ok = false;
+        if (
+          this.workingDirectory &&
+          parsed.detail &&
+          isEditLikeTool(parsed.toolName)
+        ) {
+          const diff = tryGitDiffUnified(this.workingDirectory, parsed.detail);
+          if (diff) toolPayload.gitDiffUnified = diff;
+        }
       }
       this.ui(toolPayload);
       const snapshot = parseTodoSnapshotFromToolCall(obj, parsed.toolName);
@@ -406,7 +488,8 @@ export function commandLineUsesCursorStreamJson(commandLine: string): boolean {
 
 export function createCursorStreamJsonWrapper(
   onOutputChunk?: (s: string) => void,
-  onUiEvent?: (e: AgentStreamUiEvent) => void
+  onUiEvent?: (e: AgentStreamUiEvent) => void,
+  opts?: { workingDirectory?: string }
 ): CliStreamPresenterHandle {
   if (!onOutputChunk && !onUiEvent) {
     return {
@@ -414,7 +497,7 @@ export function createCursorStreamJsonWrapper(
       finish: (raw) => raw,
     };
   }
-  const p = new CursorStreamJsonPrettifier(onUiEvent);
+  const p = new CursorStreamJsonPrettifier(onUiEvent, opts?.workingDirectory);
   let acc = '';
   const emit: TerminalEmit = (s) => {
     acc += s;
