@@ -34,6 +34,8 @@ function mergeToolInto(
   if (event.detail) target.detail = event.detail;
   if (event.callId) target.callId = event.callId;
   if (event.summary.length > target.summary.length) target.summary = event.summary;
+  if (event.ok !== undefined) target.ok = event.ok;
+  if (event.resultPreview !== undefined) target.resultPreview = event.resultPreview;
 }
 
 /** Open tool with same toolName and detail (strict). */
@@ -112,6 +114,8 @@ export function applyAgentStreamEvent(
         toolName: event.toolName,
         detail: event.detail,
         callId: event.callId,
+        ...(event.ok !== undefined ? { ok: event.ok } : {}),
+        ...(event.resultPreview !== undefined ? { resultPreview: event.resultPreview } : {}),
       };
       const key = toolStableKey(incoming);
       const last = next[next.length - 1];
@@ -154,6 +158,17 @@ export function applyAgentStreamEvent(
     case 'user_turn':
       // Intentionally ignored: activity feed does not show user-turn placeholders.
       break;
+    case 'todo_snapshot': {
+      const items = event.items.map((i) => ({ ...i }));
+      const last = next[next.length - 1];
+      if (last?.kind === 'todo') {
+        last.items = items;
+      } else {
+        pushItem(next, { kind: 'todo', items });
+      }
+      trimFeed(next);
+      break;
+    }
     default:
       break;
   }
