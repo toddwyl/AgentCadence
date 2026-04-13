@@ -2,14 +2,9 @@
 /**
  * API smoke tests against a running AgentCadence server (default http://localhost:3712).
  * Usage: AGENTCADENCE_URL=http://localhost:3712 node scripts/agentcadence-smoke.mjs
- * (AGENTLINE_URL / AGENTFLOW_URL still accepted for backward compatibility.)
  */
 
-const BASE =
-  process.env.AGENTCADENCE_URL ||
-  process.env.AGENTLINE_URL ||
-  process.env.AGENTFLOW_URL ||
-  'http://localhost:3712';
+const BASE = process.env.AGENTCADENCE_URL || 'http://localhost:3712';
 const api = (path, opts = {}) =>
   fetch(`${BASE}/api${path}`, {
     headers: { 'Content-Type': 'application/json', ...opts.headers },

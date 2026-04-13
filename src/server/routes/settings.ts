@@ -8,7 +8,8 @@ import {
   saveNotificationSettings,
 } from '../services/store.js';
 import { CLIRunner } from '../services/cli-runner.js';
-import type { DetectionResult, CLIProfile } from '../../shared/types.js';
+import { detectCliEnvironmentPaths } from '../services/cli-environment-detect.js';
+import type { CLIProfile } from '../../shared/types.js';
 
 const router = Router();
 
@@ -41,26 +42,8 @@ router.put('/notification-settings', (req: Request, res: Response) => {
 });
 
 router.get('/detect', async (_req: Request, res: Response) => {
-  const executables = ['cursor-agent', 'codex', 'claude'];
-
   const cli = new CLIRunner();
-  const results: DetectionResult[] = [];
-
-  for (const executable of executables) {
-    try {
-      const result = await cli.run({
-        command: 'zsh',
-        args: ['-lc', `command -v '${executable}' 2>/dev/null`],
-        timeout: 10,
-      });
-      const lines = result.stdout.split('\n').map((l) => l.trim());
-      const path = lines.reverse().find((l) => l.startsWith('/'));
-      results.push({ executable, found: !!path, path: path || undefined });
-    } catch {
-      results.push({ executable, found: false });
-    }
-  }
-
+  const results = await detectCliEnvironmentPaths(cli);
   res.json(results);
 });
 

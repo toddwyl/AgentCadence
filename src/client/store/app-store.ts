@@ -8,28 +8,23 @@ import type {
   PlanningPhase,
   ExecutionNotificationSettings,
   RetryRecord,
+  ActiveExecutionRunPayload,
 } from '@shared/types';
 import { pipelineAllSteps } from '@shared/types';
 import { api } from '../lib/api';
+import { sendWSMessage } from '../hooks/useWebSocket';
 import type { Locale, Translations } from '../i18n';
 import { getTranslations } from '../i18n';
 
 export type Theme = 'dark' | 'light';
 
-/** Prefer `agentcadence-*`; fall back to `agentline-*` / `agentflow-*` from older builds. */
 function readStoredTheme(): Theme {
-  const v =
-    localStorage.getItem('agentcadence-theme') ??
-    localStorage.getItem('agentline-theme') ??
-    localStorage.getItem('agentflow-theme');
+  const v = localStorage.getItem('agentcadence-theme');
   return v === 'light' || v === 'dark' ? v : 'dark';
 }
 
 function readStoredLocale(): Locale {
-  const v =
-    localStorage.getItem('agentcadence-locale') ??
-    localStorage.getItem('agentline-locale') ??
-    localStorage.getItem('agentflow-locale');
+  const v = localStorage.getItem('agentcadence-locale');
   return v === 'en' || v === 'zh' ? v : 'zh';
 }
 
@@ -68,6 +63,12 @@ interface AppState {
   theme: Theme;
   locale: Locale;
   t: Translations;
+  /** Set when initial API bootstrap fails (e.g. backend not reachable in dev). */
+  bootstrapError: string | null;
+  /** Pending review request from server */
+  pendingReview: { pipelineId: string; stepId: string; workingDirectory: string; changedFiles: string[] } | null;
+  /** Last terminal FitAddon cols/rows — sent with run for node-pty sizing (ghostty-web) */
+  terminalPtySize: { cols: number; rows: number } | null;
 
   selectedPipeline: () => Pipeline | undefined;
   selectedStep: () => PipelineStep | undefined;
@@ -105,7 +106,10 @@ interface AppState {
   handlePlanningLog: (chunk: string) => void;
   handlePlanningComplete: (pipeline: Pipeline) => void;
   handlePlanningError: (error: string) => void;
+  handleStepReviewRequested: (pipelineId: string, stepId: string, workingDirectory: string, changedFiles: string[]) => void;
+  respondToReview: (action: 'accept' | 'reject') => void;
   refreshPipelines: () => Promise<void>;
+  hydrateExecutionSnapshot: (runs: ActiveExecutionRunPayload[]) => void;
 
   toggleFlowchart: () => void;
   toggleMonitor: () => void;
@@ -115,6 +119,7 @@ interface AppState {
   setShowTemplates: (v: boolean) => void;
   setTheme: (theme: Theme) => void;
   setLocale: (locale: Locale) => void;
+  setTerminalPtySize: (size: { cols: number; rows: number } | null) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -147,6 +152,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   theme: readStoredTheme(),
   locale: readStoredLocale(),
   t: getTranslations(readStoredLocale()),
+  bootstrapError: null,
+  pendingReview: null,
+  terminalPtySize: null,
 
   selectedPipeline: () => {
     const { pipelines, selectedPipelineID } = get();
@@ -184,19 +192,39 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadInitialData: async () => {
-    const [pipelines, profile, llmConfig, notifSettings] = await Promise.all([
-      api.getPipelines(),
-      api.getProfile(),
-      api.getLLMConfig(),
-      api.getNotificationSettings(),
-    ]);
-    set({
-      pipelines,
-      profile,
-      llmConfig,
-      notificationSettings: notifSettings,
-      selectedPipelineID: pipelines.length > 0 ? pipelines[0].id : null,
-    });
+    set({ bootstrapError: null });
+    try {
+      const [pipelines, profile, llmConfig, notifSettings, activeExec] = await Promise.all([
+        api.getPipelines(),
+        api.getProfile(),
+        api.getLLMConfig(),
+        api.getNotificationSettings(),
+        api.getActiveExecution().catch(() => ({ runs: [] as ActiveExecutionRunPayload[] })),
+      ]);
+      const runs = activeExec.runs ?? [];
+      let selectedPipelineID: string | null = null;
+      if (pipelines.length > 0) {
+        const firstActive = runs[0];
+        selectedPipelineID =
+          firstActive && pipelines.some((p) => p.id === firstActive.pipelineID)
+            ? firstActive.pipelineID
+            : pipelines[0].id;
+      }
+      set({
+        pipelines,
+        profile,
+        llmConfig,
+        notificationSettings: notifSettings,
+        selectedPipelineID,
+        bootstrapError: null,
+      });
+      if (runs.length > 0) {
+        get().hydrateExecutionSnapshot(runs);
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      set({ bootstrapError: message });
+    }
   },
 
   selectPipeline: (id) => set({ selectedPipelineID: id, selectedStepID: null, showMonitor: false }),
@@ -276,7 +304,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       showMonitor: true,
       showFlowchart: false,
     });
-    await api.runPipeline(id, 'pipeline');
+    try {
+      const pty = get().terminalPtySize;
+      await api.runPipeline(id, 'pipeline', pty ?? undefined);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      set({
+        isExecuting: false,
+        executingPipelineID: null,
+        executionError: message,
+      });
+    }
   },
 
   stopPipeline: async (id) => {
@@ -323,7 +361,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  handleRunFinished: (_pipelineID, _status, error) => {
+  handleRunFinished: (pipelineID, _status, error) => {
+    if (get().executingPipelineID !== pipelineID) {
+      get().refreshPipelines();
+      return;
+    }
     set({
       isExecuting: false,
       executingPipelineID: null,
@@ -358,9 +400,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isPlanningInProgress: false, planningError: error });
   },
 
+  handleStepReviewRequested: (pipelineId, stepId, workingDirectory, changedFiles) => {
+    set({ pendingReview: { pipelineId, stepId, workingDirectory, changedFiles } });
+  },
+
+  respondToReview: (action) => {
+    const review = get().pendingReview;
+    if (!review) return;
+    sendWSMessage({
+      type: 'step_review_response',
+      payload: { pipelineId: review.pipelineId, stepId: review.stepId, action },
+    });
+    set({ pendingReview: null });
+  },
+
   refreshPipelines: async () => {
     const pipelines = await api.getPipelines();
     set({ pipelines });
+  },
+
+  hydrateExecutionSnapshot: (runs) => {
+    if (!runs.length) return;
+    const mergedStatuses: Record<string, StepStatus> = {};
+    const mergedOutputs: Record<string, string> = {};
+    const mergedRetry: Record<string, RetryRecord[]> = {};
+    const mergedMax: Record<string, number> = {};
+    for (const r of runs) {
+      Object.assign(mergedStatuses, r.stepStatuses);
+      Object.assign(mergedOutputs, r.stepOutputs);
+      Object.assign(mergedRetry, r.stepRetryRecords);
+      Object.assign(mergedMax, r.stepRetryMaxAttempts);
+    }
+    const sel = get().selectedPipelineID;
+    const pick = runs.find((x) => x.pipelineID === sel) ?? runs[0];
+    set({
+      isExecuting: true,
+      executingPipelineID: pick.pipelineID,
+      stepStatuses: mergedStatuses,
+      stepOutputs: mergedOutputs,
+      stepRetryRecords: mergedRetry,
+      stepRetryMaxAttempts: mergedMax,
+      executionError: null,
+      showMonitor: true,
+    });
   },
 
   toggleFlowchart: () => set((s) => ({ showFlowchart: !s.showFlowchart, showMonitor: false })),
@@ -371,15 +453,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShowTemplates: (v) => set({ showTemplates: v }),
   setTheme: (theme) => {
     localStorage.setItem('agentcadence-theme', theme);
-    localStorage.removeItem('agentline-theme');
-    localStorage.removeItem('agentflow-theme');
     document.documentElement.setAttribute('data-theme', theme);
     set({ theme });
   },
   setLocale: (locale) => {
     localStorage.setItem('agentcadence-locale', locale);
-    localStorage.removeItem('agentline-locale');
-    localStorage.removeItem('agentflow-locale');
     set({ locale, t: getTranslations(locale) });
   },
+
+  setTerminalPtySize: (size) => set({ terminalPtySize: size }),
 }));

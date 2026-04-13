@@ -50,7 +50,8 @@ export class CommandRunner {
     workingDirectory: string,
     profile: CLIProfile,
     shouldTerminate?: () => boolean,
-    onOutputChunk?: (chunk: string) => void
+    onOutputChunk?: (chunk: string) => void,
+    ptyDims?: { cols: number; rows: number }
   ): Promise<StepResult> {
     const commandLine = effectiveCommand(step, profile);
     if (!commandLine) {
@@ -84,19 +85,33 @@ export class CommandRunner {
       }
     }
 
-    const result = await this.cli.run({
-      command: 'zsh',
-      args: ['-lc', finalCommand],
-      workingDirectory,
-      stdinData,
-      shouldTerminate,
-      onOutputChunk,
-    });
+    const runViaPty = !!(exe && allExes.has(exe));
+    const result = runViaPty
+      ? await this.cli.runPTY({
+          command: 'zsh',
+          args: ['-lc', finalCommand],
+          workingDirectory,
+          stdinData,
+          timeout: profile.stepTimeout || 1800,
+          shouldTerminate,
+          onOutputChunk,
+          cols: ptyDims?.cols,
+          rows: ptyDims?.rows,
+        })
+      : await this.cli.run({
+          command: 'zsh',
+          args: ['-lc', finalCommand],
+          workingDirectory,
+          stdinData,
+          timeout: profile.stepTimeout || 1800,
+          shouldTerminate,
+          onOutputChunk,
+        });
 
     let output: string;
     if (result.exitCode !== 0) {
       const stdout = result.stdout.trim();
-      const stderr = result.stderr.trim();
+      const stderr = (result.stderr || '').trim();
       output = [
         'Command failed.',
         '',

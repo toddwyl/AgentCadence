@@ -11,6 +11,7 @@ import templateRoutes from './routes/templates.js';
 import promptMentionRoutes from './routes/prompt-mentions.js';
 import fsRoutes from './routes/fs.js';
 import { initWebSocket } from './ws.js';
+import { autoDetectAndSaveProfile } from './services/profile-autodetect.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3712;
@@ -36,6 +37,13 @@ app.get('*', (_req, res) => {
 const server = createServer(app);
 initWebSocket(server);
 
-server.listen(PORT, () => {
-  console.log(`\n  🚀 AgentCadence server running at http://localhost:${PORT}\n`);
-});
+void (async () => {
+  try {
+    await autoDetectAndSaveProfile();
+  } catch (e) {
+    console.warn('[AgentCadence] Startup CLI auto-detect failed:', (e as Error).message);
+  }
+  server.listen(PORT, () => {
+    console.log(`\n  🚀 AgentCadence server running at http://localhost:${PORT}\n`);
+  });
+})();

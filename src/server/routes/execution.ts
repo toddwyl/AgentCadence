@@ -12,7 +12,15 @@ import type {
 import { DAGScheduler, ExecutionControl, SchedulerError } from '../services/dag-scheduler.js';
 import { stepResultDisplayOutput } from '../services/tool-runner.js';
 import { loadPipelines, savePipelines, loadProfile } from '../services/store.js';
-import { broadcast } from '../ws.js';
+import { broadcast, requestStepReview, cancelPendingReviewsForPipeline } from '../ws.js';
+import {
+  initLiveRun,
+  clearLiveRun,
+  appendStepOutput,
+  setStepStatus,
+  setStepRetry,
+  getActiveRunSnapshots,
+} from '../services/live-run-buffer.js';
 
 const router = Router();
 
@@ -26,14 +34,17 @@ router.post('/:id/run', async (req: Request, res: Response) => {
     res.status(409).json({ error: 'Pipeline is already running' }); return;
   }
 
+  const body = (req.body || {}) as { cols?: number; rows?: number };
   res.json({ status: 'started' });
-  runPipeline(pipeline);
+  runPipeline(pipeline, { cols: body.cols, rows: body.rows });
 });
 
 router.post('/:id/stop', (req: Request, res: Response) => {
   const control = activePipelines.get(req.params.id);
   if (!control) { res.status(404).json({ error: 'No active run' }); return; }
   control.requestPipelineStop();
+  // Unblock any pending review promises so the pipeline can finish
+  cancelPendingReviewsForPipeline(req.params.id);
   res.json({ ok: true });
 });
 
@@ -44,9 +55,14 @@ router.post('/:id/stop-stage/:stageId', (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-async function runPipeline(pipeline: Pipeline) {
+router.get('/active', (_req: Request, res: Response) => {
+  res.json({ runs: getActiveRunSnapshots() });
+});
+
+async function runPipeline(pipeline: Pipeline, ptyOpts?: { cols?: number; rows?: number }) {
   const scheduler = new DAGScheduler();
   const control = new ExecutionControl();
+  control.setPtyDimensions(ptyOpts?.cols, ptyOpts?.rows);
   const profile = loadProfile();
   activePipelines.set(pipeline.id, control);
 
@@ -69,6 +85,8 @@ async function runPipeline(pipeline: Pipeline) {
     })),
   };
 
+  initLiveRun(pipeline, runRecord.id);
+
   broadcast({
     type: 'pipeline_run_started',
     payload: { pipelineID: pipeline.id, runID: runRecord.id },
@@ -83,6 +101,7 @@ async function runPipeline(pipeline: Pipeline) {
       profile,
       control,
       (stepID, status) => {
+        setStepStatus(pipeline.id, stepID, status);
         broadcast({
           type: 'step_status_changed',
           payload: { pipelineID: pipeline.id, stepID, status },
@@ -90,6 +109,7 @@ async function runPipeline(pipeline: Pipeline) {
         updateRunRecordStep(runRecord, stepID, status);
       },
       (stepID, output) => {
+        appendStepOutput(pipeline.id, stepID, output);
         broadcast({
           type: 'step_output',
           payload: { pipelineID: pipeline.id, stepID, output },
@@ -97,6 +117,7 @@ async function runPipeline(pipeline: Pipeline) {
       },
       (stepID, retryRecords, failedAttempt, maxAttempts) => {
         updateRunRecordRetry(runRecord, stepID, retryRecords, undefined, maxAttempts);
+        setStepRetry(pipeline.id, stepID, retryRecords, failedAttempt, maxAttempts);
         broadcast({
           type: 'step_retry',
           payload: {
@@ -107,12 +128,19 @@ async function runPipeline(pipeline: Pipeline) {
             maxAttempts,
           },
         });
+      },
+      async (stepID, workingDirectory, changedFiles) => {
+        updateRunRecordStepReview(runRecord, stepID, changedFiles);
+        return requestStepReview(pipeline.id, stepID, workingDirectory, changedFiles);
       }
     );
 
     for (const result of results) {
       if (result.retryRecords || result.totalAttempts) {
         updateRunRecordRetry(runRecord, result.stepID, result.retryRecords, result.totalAttempts);
+      }
+      if (result.reviewResult) {
+        updateRunRecordStepReview(runRecord, result.stepID, [], result.reviewResult);
       }
       updateRunRecordStepOutput(runRecord, result.stepID, stepResultDisplayOutput(result));
     }
@@ -148,6 +176,7 @@ async function runPipeline(pipeline: Pipeline) {
   }
 
   activePipelines.delete(pipeline.id);
+  clearLiveRun(pipeline.id);
   broadcast({
     type: 'pipeline_run_finished',
     payload: { pipelineID: pipeline.id, runID: runRecord.id, status: finalStatus, error: finalError },
@@ -193,6 +222,23 @@ function updateRunRecordRetry(
         if (retryRecords !== undefined) stepRun.retryRecords = retryRecords;
         if (totalAttempts !== undefined) stepRun.totalAttempts = totalAttempts;
         if (maxAttemptsHint !== undefined) stepRun.maxAttempts = maxAttemptsHint;
+        return;
+      }
+    }
+  }
+}
+
+function updateRunRecordStepReview(
+  runRecord: PipelineRunRecord,
+  stepID: string,
+  changedFiles: string[],
+  reviewResult?: 'accepted' | 'rejected'
+) {
+  for (const sr of runRecord.stageRuns) {
+    for (const stepRun of sr.stepRuns) {
+      if (stepRun.stepID === stepID) {
+        stepRun.changedFiles = changedFiles;
+        if (reviewResult) stepRun.reviewResult = reviewResult;
         return;
       }
     }

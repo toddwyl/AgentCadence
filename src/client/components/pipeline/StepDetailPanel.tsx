@@ -28,6 +28,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   const [model, setModel] = useState(step.model || '');
   const [failureMode, setFailureMode] = useState<FailureMode>(step.failureMode || 'retry');
   const [retryCount, setRetryCount] = useState(step.retryCount ?? 3);
+  const [reviewMode, setReviewMode] = useState<'auto' | 'review'>(step.reviewMode || 'auto');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [mentionData, setMentionData] = useState<PromptMentionsResponse | null>(null);
@@ -44,6 +45,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
     setName(step.name); setPrompt(step.prompt); setTool(step.tool);
     setCommand(step.command || ''); setModel(step.model || '');
     setFailureMode(step.failureMode || 'retry'); setRetryCount(step.retryCount ?? 3);
+    setReviewMode(step.reviewMode || 'auto');
   }, [step.id]);
 
   useEffect(() => {
@@ -73,9 +75,9 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   };
 
   const save = () => {
-    updateStep(pipelineId, step.id, { name, prompt, tool, command: command || undefined, model: model || undefined, failureMode, retryCount });
+    updateStep(pipelineId, step.id, { name, prompt, tool, command: command || undefined, model: model || undefined, failureMode, retryCount, reviewMode });
   };
-  const isDirty = name !== step.name || prompt !== step.prompt || tool !== step.tool || command !== (step.command || '') || model !== (step.model || '') || failureMode !== (step.failureMode || 'retry') || retryCount !== (step.retryCount ?? 3);
+  const isDirty = name !== step.name || prompt !== step.prompt || tool !== step.tool || command !== (step.command || '') || model !== (step.model || '') || failureMode !== (step.failureMode || 'retry') || retryCount !== (step.retryCount ?? 3) || reviewMode !== (step.reviewMode || 'auto');
   const status = stepStatuses[step.id];
   const output = stepOutputs[step.id];
   const retryRecords = useMemo(() => {
@@ -318,12 +320,26 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
           </label>
         </div>
 
+        {/* Review Mode */}
+        <div className="space-y-2 p-3 rounded-lg" style={{ border: '1px solid var(--color-border)' }}>
+          <label className="block text-xs font-medium theme-text-secondary mb-2">{t.stepDetail.reviewMode}</label>
+          <label className="flex items-center gap-2 text-sm theme-text-secondary cursor-pointer">
+            <input type="radio" name={`reviewMode-${step.id}`} checked={reviewMode === 'auto'} onChange={() => setReviewMode('auto')} className="accent-accent-primary" />
+            {t.stepDetail.reviewAuto}
+          </label>
+          <label className="flex items-center gap-2 text-sm theme-text-secondary cursor-pointer">
+            <input type="radio" name={`reviewMode-${step.id}`} checked={reviewMode === 'review'} onChange={() => setReviewMode('review')} className="accent-accent-primary" />
+            {t.stepDetail.reviewWait}
+          </label>
+          <p className="text-[11px] theme-text-muted leading-relaxed mt-1">{t.stepDetail.reviewModeHint}</p>
+        </div>
+
         {retryRecords.length > 0 && (
           <div className="space-y-2 p-3 rounded-lg bg-amber-500/[0.04]" style={{ border: '1px solid rgba(245,158,11,0.2)' }}>
             <label className="block text-xs font-medium text-amber-500">{t.stepDetail.retryRecords}</label>
             {liveRetryMax && isExecuting && executingPipelineID === pipelineId && (
               <p className="text-[10px] text-amber-400/90">
-                {t.stepDetail.retryInfo
+                {t.execution.retryInfo
                   .replace('{current}', String(retryRecords.length))
                   .replace('{total}', String(liveRetryMax))}
               </p>

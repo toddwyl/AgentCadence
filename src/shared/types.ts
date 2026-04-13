@@ -6,7 +6,7 @@
 
 export type ToolType = 'codex' | 'claude' | 'cursor';
 
-export const TOOL_TYPES: ToolType[] = ['codex', 'claude', 'cursor'];
+export const TOOL_TYPES: ToolType[] = ['cursor', 'claude', 'codex'];
 
 // MARK: - Prompt mentions (/, skills, slash commands, subagents)
 
@@ -98,6 +98,7 @@ export interface PipelineStep {
   dependsOnStepIDs: string[];
   failureMode: 'stop' | 'skip' | 'retry';
   retryCount: number;
+  reviewMode: 'auto' | 'review';
   status: StepStatus;
   output?: string;
   error?: string;
@@ -139,6 +140,8 @@ export interface StepRunRecord {
   totalAttempts?: number;
   /** Planned max attempts when failureMode is retry (for live UI) */
   maxAttempts?: number;
+  reviewResult?: 'accepted' | 'rejected';
+  changedFiles?: string[];
 }
 
 export interface StageRunRecord {
@@ -251,6 +254,8 @@ export interface CLIProfile {
   codex: ToolCLIConfig;
   claude: ToolCLIConfig;
   planner: ToolCLIConfig;
+  /** Per-step execution timeout in seconds (default 1800 = 30 min) */
+  stepTimeout: number;
 }
 
 export function profileConfigForTool(profile: CLIProfile, tool: ToolType): ToolCLIConfig {
@@ -258,7 +263,7 @@ export function profileConfigForTool(profile: CLIProfile, tool: ToolType): ToolC
 }
 
 /**
- * Older AgentCadence / AgentLine / AgentFlow builds defaulted Cursor steps to `opus-4.6`, which current cursor-agent builds may reject.
+ * Older AgentCadence builds defaulted Cursor steps to `opus-4.6`, which current cursor-agent builds may reject.
  * Treat as unset so `config.defaultModel` (e.g. `auto`) applies.
  */
 export function normalizeCursorModelForCLI(model: string | undefined, tool: ToolType): string | undefined {
@@ -322,9 +327,12 @@ export function buildCommandTemplate(config: ToolCLIConfig, model?: string): str
 export const DEFAULT_CLI_PROFILE: CLIProfile = {
   id: 'default',
   name: 'Default',
+  stepTimeout: 1800,
   cursor: {
     executable: 'cursor-agent',
-    baseArgs: ['--trust'],
+    // Headless: --force applies file edits without interactive confirm (otherwise agent may block in PTY).
+    // stream-json + --stream-partial-output: NDJSON events + finer text chunks (see Cursor output-format doc).
+    baseArgs: ['--trust', '--force', '--output-format', 'stream-json', '--stream-partial-output'],
     promptFlag: '-p',
     modelFlag: '--model',
     promptMode: 'inline',
@@ -345,7 +353,7 @@ export const DEFAULT_CLI_PROFILE: CLIProfile = {
   },
   planner: {
     executable: 'cursor-agent',
-    baseArgs: ['--trust'],
+    baseArgs: ['--trust', '--force', '--output-format', 'stream-json', '--stream-partial-output'],
     promptFlag: '-p',
     modelFlag: '--model',
     promptMode: 'inline',
@@ -427,17 +435,30 @@ export const DEFAULT_NOTIFICATION_SETTINGS: ExecutionNotificationSettings = {
 
 // MARK: - WebSocket Event Types
 
+/** Snapshot of one in-flight pipeline run (server buffer + reconnect hydrate). */
+export interface ActiveExecutionRunPayload {
+  pipelineID: string;
+  runID: string;
+  stepStatuses: Record<string, StepStatus>;
+  stepOutputs: Record<string, string>;
+  stepRetryRecords: Record<string, RetryRecord[]>;
+  stepRetryMaxAttempts: Record<string, number>;
+}
+
 export type WSEventType =
   | 'step_status_changed'
   | 'step_output'
   | 'step_retry'
+  | 'step_review_requested'
+  | 'step_review_response'
   | 'pipeline_run_started'
   | 'pipeline_run_finished'
   | 'planning_phase'
   | 'planning_log'
   | 'planning_complete'
   | 'planning_error'
-  | 'execution_error';
+  | 'execution_error'
+  | 'execution_state_snapshot';
 
 export interface WSMessage {
   type: WSEventType;
@@ -465,6 +486,7 @@ export interface AddStepRequest {
   dependsOnStepIDs?: string[];
   failureMode?: 'stop' | 'skip' | 'retry';
   retryCount?: number;
+  reviewMode?: 'auto' | 'review';
 }
 
 export interface GeneratePipelineRequest {

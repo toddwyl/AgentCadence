@@ -8,24 +8,12 @@
  *
  * Optional:
  *   AGENTCADENCE_RUN_TIMEOUT_MS=900000   (default 15 min — server CLI timeout is 600s per step)
- * (AGENTLINE_* / AGENTFLOW_* env vars still accepted.)
  */
 
-const BASE =
-  process.env.AGENTCADENCE_URL ||
-  process.env.AGENTLINE_URL ||
-  process.env.AGENTFLOW_URL ||
-  'http://localhost:3712';
-const TIMEOUT_MS = Number(
-  process.env.AGENTCADENCE_RUN_TIMEOUT_MS ||
-    process.env.AGENTLINE_RUN_TIMEOUT_MS ||
-    process.env.AGENTFLOW_RUN_TIMEOUT_MS ||
-    900000
-);
+const BASE = process.env.AGENTCADENCE_URL || 'http://localhost:3712';
+const TIMEOUT_MS = Number(process.env.AGENTCADENCE_RUN_TIMEOUT_MS || 900000);
 const PROMPT =
   process.env.AGENTCADENCE_CURSOR_PROMPT ||
-  process.env.AGENTLINE_CURSOR_PROMPT ||
-  process.env.AGENTFLOW_CURSOR_PROMPT ||
   'Reply with exactly one line containing only: CURSOR_E2E_OK (no other text).';
 
 const api = (path, opts = {}) =>

@@ -76,6 +76,7 @@ function planResponseToPipeline(plan: PlanResponse, workingDirectory: string): P
         dependsOnStepIDs: deps,
         failureMode: psStep.failureMode ?? 'retry',
         retryCount: 3,
+        reviewMode: 'auto',
         status: 'pending',
       });
     }

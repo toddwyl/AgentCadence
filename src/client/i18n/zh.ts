@@ -4,6 +4,9 @@ export const zh = {
     subtitle: '编排工作台',
     welcome: '欢迎使用 AgentCadence',
     welcomeDesc: '创建一个 Pipeline 或使用 AI 从自然语言描述生成。',
+    apiUnavailable:
+      '无法连接后端 API（开发时前端在 5173，请求会代理到 3712）。请确认 dev:server 已启动且 3712 未被占用。',
+    retryLoad: '重试',
   },
   sidebar: {
     newPipeline: '新建 Pipeline',
@@ -53,6 +56,7 @@ export const zh = {
     stepName: '步骤名称',
     prompt: '提示词',
     promptPlaceholder: '该步骤的提示词',
+    pipelineSettings: 'Pipeline 设置',
   },
   stepDetail: {
     title: '步骤详情',
@@ -88,6 +92,11 @@ export const zh = {
     badgeSkill: 'Skill',
     badgeCommand: '命令',
     badgeSubagent: '子代理',
+    reviewMode: '完成后审查',
+    reviewAuto: '自动继续',
+    reviewWait: '等待 IDE 审查',
+    reviewModeHint:
+      '界面上的「接受/拒绝」仅在勾选「等待 IDE 审查」且该步成功结束后才会出现，并会暂停整条流水线。若已选「自动继续」却仍要点接受才往下走，多半是 Cursor CLI 在伪终端里等人确认（例如写文件前）。可在「设置」的基础参数中加入 --force，或查阅 Cursor 无头 / print 模式文档。输出若成批出现，请确认已使用 --output-format stream-json（及可选 --stream-partial-output），旧配置里仍是 text 则只会最后一次性输出。',
   },
   flowchart: {},
   execution: {
@@ -109,6 +118,12 @@ export const zh = {
     runStatus: '状态',
     outputFromHistory: '输出（随本次运行保存）',
     noSavedOutput: '该步骤未记录输出',
+    reviewPending: '等待审查...',
+    reviewAccept: '接受',
+    reviewReject: '拒绝',
+    reviewBanner: '步骤「{name}」已完成。在 IDE 中审查变更或在此接受/拒绝。',
+    changedFiles: '变更文件',
+    jumpToBottom: '回到底部',
   },
   planner: {
     title: 'AI Pipeline 生成器',
@@ -131,11 +146,23 @@ export const zh = {
   settings: {
     title: '设置',
     cliProfile: '命令行',
-    cliProfileHint: '默认使用 cursor-agent、codex、claude。检测可在本机解析其安装路径。',
+    cliProfileHint:
+      '默认使用 cursor-agent、codex、claude。服务启动时会自动检测并写入绝对路径；也可手动点「检测环境」刷新。',
     detectEnv: '检测环境',
     detecting: '检测中...',
     notFound: '未找到',
-    plannerConfig: 'Planner 配置',
+    toolDefaultModels: 'Pipeline 执行工具配置',
+    toolDefaultModelsHint: '配置每个 Agent 工具的默认模型和参数。',
+    model: '模型',
+    baseArgs: '参数',
+      baseArgsPlaceholder: '例如 --trust --force --output-format stream-json --stream-partial-output',
+    stepTimeout: '步骤执行超时',
+    stepTimeoutHint: '每个步骤允许运行的最大时间（秒），超时将被终止。',
+    seconds: '秒',
+    minutes: '分钟',
+    plannerConfig: 'AI Planner 配置',
+    plannerConfigHint: '选择用于 AI 生成 Pipeline 的工具和模型。',
+    plannerTool: 'Planner 工具',
     plannerModel: 'Planner 模型',
     customPolicy: '自定义规划策略',
     customPolicyPlaceholder: '可选的额外 Planner 指令...',
@@ -143,6 +170,7 @@ export const zh = {
     themeLight: '浅色',
     themeDark: '深色',
     language: '语言',
+    globalSettings: '全局设置',
   },
   templates: {
     title: 'Pipeline 模板',

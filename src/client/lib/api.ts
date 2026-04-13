@@ -1,4 +1,4 @@
-import type { PromptMentionsResponse } from '@shared/types';
+import type { PromptMentionsResponse, ActiveExecutionRunPayload } from '@shared/types';
 
 const BASE = '/api';
 
@@ -66,12 +66,20 @@ export const api = {
   deleteStep: (pipelineId: string, stepId: string) =>
     request<any>(`/pipelines/${pipelineId}/steps/${stepId}`, { method: 'DELETE' }),
 
-  runPipeline: (id: string, mode: string) =>
-    request<any>(`/execution/${id}/run`, { method: 'POST', body: JSON.stringify({ mode }) }),
+  runPipeline: (id: string, mode: string, ptySize?: { cols: number; rows: number }) =>
+    request<any>(`/execution/${id}/run`, {
+      method: 'POST',
+      body: JSON.stringify({
+        mode,
+        ...(ptySize ? { cols: ptySize.cols, rows: ptySize.rows } : {}),
+      }),
+    }),
   stopPipeline: (id: string) =>
     request<any>(`/execution/${id}/stop`, { method: 'POST' }),
   stopStage: (id: string, stageId: string) =>
     request<any>(`/execution/${id}/stop-stage/${stageId}`, { method: 'POST' }),
+  getActiveExecution: () =>
+    request<{ runs: ActiveExecutionRunPayload[] }>('/execution/active'),
 
   generatePipeline: (userPrompt: string, workingDirectory: string, llmConfig?: any) =>
     request<any>('/planner/generate', {

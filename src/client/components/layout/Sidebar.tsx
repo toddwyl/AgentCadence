@@ -166,10 +166,13 @@ function PipelineItem({ pipeline, selected, running, onSelect, onDelete }: {
   const stepCount = pipeline.stages.reduce((sum, s) => sum + s.steps.length, 0);
   const modeLabel = 'Pipeline';
   return (
-    <div onClick={onSelect}
+    <div
+      data-testid={`pipeline-item-${pipeline.id}`}
+      onClick={onSelect}
       className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150
         ${selected ? 'theme-active-bg' : 'theme-hover'}`}
-      style={selected ? { border: '1px solid rgba(99,102,241,0.2)' } : { border: '1px solid transparent' }}>
+      style={selected ? { border: '1px solid rgba(99,102,241,0.2)' } : { border: '1px solid transparent' }}
+    >
       {running && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-status-running rounded-full running-glow" />}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">

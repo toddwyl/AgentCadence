@@ -128,6 +128,7 @@ router.post('/:pipelineId/stages/:stageId/steps', (req: Request, res: Response) 
     dependsOnStepIDs: body.dependsOnStepIDs || [],
     failureMode: body.failureMode ?? 'retry',
     retryCount: body.retryCount ?? 3,
+    reviewMode: body.reviewMode ?? 'auto',
     status: 'pending',
   };
   pipelines[pi].stages[si].steps.push(step);
@@ -142,7 +143,7 @@ router.put('/:pipelineId/steps/:stepId', (req: Request, res: Response) => {
   for (const stage of pipelines[pi].stages) {
     const idx = stage.steps.findIndex((s) => s.id === req.params.stepId);
     if (idx !== -1) {
-      const { name, prompt, tool, command, model, dependsOnStepIDs, failureMode, retryCount } = req.body;
+      const { name, prompt, tool, command, model, dependsOnStepIDs, failureMode, retryCount, reviewMode } = req.body;
       if (name !== undefined) stage.steps[idx].name = name;
       if (prompt !== undefined) stage.steps[idx].prompt = prompt;
       if (tool !== undefined) stage.steps[idx].tool = tool;
@@ -151,6 +152,7 @@ router.put('/:pipelineId/steps/:stepId', (req: Request, res: Response) => {
       if (dependsOnStepIDs !== undefined) stage.steps[idx].dependsOnStepIDs = dependsOnStepIDs;
       if (failureMode !== undefined) stage.steps[idx].failureMode = failureMode;
       if (retryCount !== undefined) stage.steps[idx].retryCount = retryCount;
+      if (reviewMode !== undefined) stage.steps[idx].reviewMode = reviewMode;
       savePipelines(pipelines);
       res.json(stage.steps[idx]);
       return;
@@ -190,22 +192,22 @@ router.post('/:id/demo', (req: Request, res: Response) => {
   const codingA: PipelineStep = {
     id: uuidv4(), name: 'Implement feature A',
     prompt: 'Implement the user login form with email and password fields.',
-    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
+    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, reviewMode: 'auto', status: 'pending',
   };
   const codingB: PipelineStep = {
     id: uuidv4(), name: 'Implement feature B',
     prompt: 'Implement the user registration form with validation.',
-    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
+    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, reviewMode: 'auto', status: 'pending',
   };
   const review: PipelineStep = {
     id: uuidv4(), name: 'Code review',
     prompt: 'Review all changed files for bugs, security issues, and code style.',
-    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
+    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, reviewMode: 'auto', status: 'pending',
   };
   const verify: PipelineStep = {
     id: uuidv4(), name: 'Verify & fix',
     prompt: 'Run the project, fix any compilation errors or test failures.',
-    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, status: 'pending',
+    tool: 'cursor', dependsOnStepIDs: [], failureMode: 'retry', retryCount: 3, reviewMode: 'auto', status: 'pending',
   };
 
   pipelines[idx].stages = [

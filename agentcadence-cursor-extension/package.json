@@ -1,0 +1,56 @@
+{
+  "name": "agentcadence-companion",
+  "displayName": "AgentCadence Companion",
+  "description": "Visualize AgentCadence pipeline step changes in Cursor/VS Code with accept/reject review",
+  "version": "0.1.0",
+  "publisher": "agentcadence",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentcadence.connect",
+        "title": "AgentCadence: Connect"
+      },
+      {
+        "command": "agentcadence.disconnect",
+        "title": "AgentCadence: Disconnect"
+      }
+    ],
+    "configuration": {
+      "title": "AgentCadence",
+      "properties": {
+        "agentcadence.serverUrl": {
+          "type": "string",
+          "default": "ws://localhost:3712/ws",
+          "description": "AgentCadence server WebSocket URL"
+        },
+        "agentcadence.autoConnect": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-connect on extension activation"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "npm run esbuild",
+    "esbuild": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "npm run esbuild -- --watch"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "esbuild": "^0.27.4",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

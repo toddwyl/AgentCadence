@@ -54,6 +54,7 @@ router.post('/from-pipeline/:pipelineId', (req: Request, res: Response) => {
       dependsOnStepIDs: [],
       failureMode: step.failureMode,
       retryCount: step.retryCount,
+      reviewMode: step.reviewMode ?? 'auto',
       status: 'pending',
     })),
   }));
@@ -96,6 +97,7 @@ router.post('/:templateId/create-pipeline', (req: Request, res: Response) => {
       dependsOnStepIDs: [],
       failureMode: step.failureMode,
       retryCount: step.retryCount,
+      reviewMode: step.reviewMode ?? 'auto',
       status: 'pending',
     })),
   }));
@@ -234,6 +236,7 @@ function markdownToTemplate(markdown: string): PipelineTemplate {
         dependsOnStepIDs: [],
         failureMode: st.failureMode ?? 'retry',
         retryCount: 3,
+        reviewMode: 'auto',
         status: 'pending',
       });
     }

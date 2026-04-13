@@ -1,21 +1,73 @@
 import { useState, useEffect } from 'react';
-import type { LLMConfig, DetectionResult } from '@shared/types';
+import type { LLMConfig, CLIProfile, DetectionResult, ToolType } from '@shared/types';
+import { mergeDetectedPathsIntoProfile } from '@shared/cli-detect-merge';
+import { TOOL_TYPES, TOOL_META } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
 
 export function CLIProfileSetup() {
-  const { setShowSettings, llmConfig, t, theme, setTheme, locale, setLocale } = useAppStore();
+  const { setShowSettings, llmConfig, profile, t, theme, setTheme, locale, setLocale } = useAppStore();
   const [detecting, setDetecting] = useState(false);
   const [detectRows, setDetectRows] = useState<DetectionResult[] | null>(null);
   const [detectError, setDetectError] = useState<string | null>(null);
   const [llm, setLlm] = useState<LLMConfig>(llmConfig);
+  const [plannerTool, setPlannerTool] = useState<ToolType>(() => {
+    if (!profile?.planner) return 'cursor';
+    const exe = profile.planner.executable;
+    if (exe.includes('claude')) return 'claude';
+    if (exe.includes('codex')) return 'codex';
+    return 'cursor';
+  });
+  const [plannerModel, setPlannerModel] = useState(profile?.planner?.defaultModel || '');
+  const [toolModels, setToolModels] = useState<Record<ToolType, string>>({
+    cursor: profile?.cursor?.defaultModel || '',
+    claude: profile?.claude?.defaultModel || '',
+    codex: profile?.codex?.defaultModel || '',
+  });
+  const [toolBaseArgs, setToolBaseArgs] = useState<Record<ToolType, string>>({
+    cursor: profile?.cursor?.baseArgs?.join(' ') || '',
+    claude: profile?.claude?.baseArgs?.join(' ') || '',
+    codex: profile?.codex?.baseArgs?.join(' ') || '',
+  });
+  const [stepTimeout, setStepTimeout] = useState<number>(profile?.stepTimeout || 1800);
+
+  useEffect(() => {
+    if (profile) {
+      setToolModels({
+        cursor: profile.cursor?.defaultModel || '',
+        claude: profile.claude?.defaultModel || '',
+        codex: profile.codex?.defaultModel || '',
+      });
+      setToolBaseArgs({
+        cursor: profile.cursor?.baseArgs?.join(' ') || '',
+        claude: profile.claude?.baseArgs?.join(' ') || '',
+        codex: profile.codex?.baseArgs?.join(' ') || '',
+      });
+      setStepTimeout(profile.stepTimeout || 1800);
+      setPlannerModel(profile.planner?.defaultModel || '');
+      const exe = profile.planner?.executable || '';
+      if (exe.includes('claude')) setPlannerTool('claude');
+      else if (exe.includes('codex')) setPlannerTool('codex');
+      else setPlannerTool('cursor');
+    }
+  }, [profile]);
 
   const detect = async () => {
     setDetecting(true);
     setDetectError(null);
     try {
       const r = await api.detectEnvironment();
-      setDetectRows(Array.isArray(r) ? r : []);
+      const rows = Array.isArray(r) ? r : [];
+      setDetectRows(rows);
+
+      const p = useAppStore.getState().profile;
+      if (!p) return;
+
+      const { next, changed } = mergeDetectedPathsIntoProfile(p, rows);
+      if (changed) {
+        await api.updateProfile(next as unknown as Record<string, unknown>);
+        useAppStore.setState({ profile: next });
+      }
     } catch (e) {
       setDetectRows(null);
       setDetectError((e as Error).message || 'Detect failed');
@@ -27,6 +79,47 @@ export function CLIProfileSetup() {
   const saveLLM = async () => {
     await api.updateLLMConfig(llm as unknown as Record<string, unknown>);
     useAppStore.setState({ llmConfig: llm });
+  };
+
+  const saveToolModel = async (tool: ToolType, model: string) => {
+    if (!profile) return;
+    const updated = {
+      ...profile,
+      [tool]: { ...profile[tool], defaultModel: model || undefined },
+    };
+    await api.updateProfile(updated as unknown as Record<string, unknown>);
+    useAppStore.setState({ profile: updated });
+  };
+
+  const saveToolBaseArgs = async (tool: ToolType, argsStr: string) => {
+    if (!profile) return;
+    const args = argsStr.trim() ? argsStr.trim().split(/\s+/) : [];
+    const updated = {
+      ...profile,
+      [tool]: { ...profile[tool], baseArgs: args },
+    };
+    await api.updateProfile(updated as unknown as Record<string, unknown>);
+    useAppStore.setState({ profile: updated });
+  };
+
+  const savePlannerConfig = async (tool: ToolType, model: string) => {
+    if (!profile) return;
+    // Copy the tool's CLI config as the planner config, override model
+    const sourceConfig = profile[tool];
+    const updated = {
+      ...profile,
+      planner: { ...sourceConfig, defaultModel: model || sourceConfig.defaultModel },
+    };
+    await api.updateProfile(updated as unknown as Record<string, unknown>);
+    useAppStore.setState({ profile: updated });
+  };
+
+  const saveStepTimeout = async (seconds: number) => {
+    if (!profile) return;
+    const clamped = Math.max(60, Math.min(7200, seconds));
+    const updated = { ...profile, stepTimeout: clamped };
+    await api.updateProfile(updated as unknown as Record<string, unknown>);
+    useAppStore.setState({ profile: updated });
   };
 
   return (
@@ -85,11 +178,84 @@ export function CLIProfileSetup() {
             )}
           </section>
 
+          {/* Tool Configuration */}
+          <section>
+            <h3 className="text-xs font-medium theme-text-secondary mb-1">{t.settings.toolDefaultModels}</h3>
+            <p className="text-[10px] theme-text-muted mb-3">{t.settings.toolDefaultModelsHint}</p>
+            <div className="space-y-3">
+              {TOOL_TYPES.map((tool) => {
+                const meta = TOOL_META[tool];
+                return (
+                  <div key={tool} className="p-3 rounded-lg space-y-2" style={{ border: '1px solid var(--color-border)' }}>
+                    <span className="text-xs font-semibold" style={{ color: meta.tintColor }}>{meta.displayName}</span>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] theme-text-tertiary w-12 shrink-0">{t.settings.model}</label>
+                      <input
+                        className="input-field text-xs flex-1"
+                        placeholder={meta.defaultModels[0] || 'auto'}
+                        value={toolModels[tool]}
+                        onChange={(e) => setToolModels({ ...toolModels, [tool]: e.target.value })}
+                        onBlur={() => saveToolModel(tool, toolModels[tool])}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] theme-text-tertiary w-12 shrink-0">{t.settings.baseArgs}</label>
+                      <input
+                        className="input-field text-xs flex-1 font-mono"
+                        placeholder={t.settings.baseArgsPlaceholder}
+                        value={toolBaseArgs[tool]}
+                        onChange={(e) => setToolBaseArgs({ ...toolBaseArgs, [tool]: e.target.value })}
+                        onBlur={() => saveToolBaseArgs(tool, toolBaseArgs[tool])}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Execution Timeout */}
+          <section>
+            <h3 className="text-xs font-medium theme-text-secondary mb-1">{t.settings.stepTimeout}</h3>
+            <p className="text-[10px] theme-text-muted mb-3">{t.settings.stepTimeoutHint}</p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                min={60}
+                max={7200}
+                className="input-field text-sm w-24 text-center"
+                value={stepTimeout}
+                onChange={(e) => setStepTimeout(parseInt(e.target.value) || 1800)}
+                onBlur={() => saveStepTimeout(stepTimeout)}
+              />
+              <span className="text-xs theme-text-muted">{t.settings.seconds} ({Math.floor(stepTimeout / 60)} {t.settings.minutes})</span>
+            </div>
+          </section>
+
           {/* Planner */}
           <section>
-            <h3 className="text-xs font-medium theme-text-secondary mb-3">{t.settings.plannerConfig}</h3>
+            <h3 className="text-xs font-medium theme-text-secondary mb-1">{t.settings.plannerConfig}</h3>
+            <p className="text-[10px] theme-text-muted mb-3">{t.settings.plannerConfigHint}</p>
             <div className="space-y-3">
-              <div><label className="block text-xs theme-text-tertiary mb-1.5">{t.settings.plannerModel}</label><input className="input-field text-sm" value={llm.model} onChange={(e) => setLlm({ ...llm, model: e.target.value })} onBlur={saveLLM} /></div>
+              <div>
+                <label className="block text-xs theme-text-tertiary mb-1.5">{t.settings.plannerTool}</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {TOOL_TYPES.map((tt) => {
+                    const m = TOOL_META[tt];
+                    return (
+                      <button key={tt} onClick={() => { setPlannerTool(tt); savePlannerConfig(tt, plannerModel); }}
+                        className={`p-2 rounded-lg text-center transition-all text-xs font-medium ${plannerTool === tt ? 'theme-active-bg theme-text' : 'theme-text-tertiary theme-hover'}`}
+                        style={{ border: plannerTool === tt ? '1px solid rgba(99,102,241,0.3)' : '1px solid var(--color-border)' }}>
+                        <span style={{ color: m.tintColor }}>{m.displayName}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs theme-text-tertiary mb-1.5">{t.settings.plannerModel}</label>
+                <input className="input-field text-sm" placeholder={TOOL_META[plannerTool].defaultModels[0] || 'auto'} value={plannerModel} onChange={(e) => setPlannerModel(e.target.value)} onBlur={() => savePlannerConfig(plannerTool, plannerModel)} />
+              </div>
               <div><label className="block text-xs theme-text-tertiary mb-1.5">{t.settings.customPolicy}</label><textarea className="input-field text-sm min-h-[60px] resize-y" placeholder={t.settings.customPolicyPlaceholder} value={llm.customPolicy} onChange={(e) => setLlm({ ...llm, customPolicy: e.target.value })} onBlur={saveLLM} /></div>
             </div>
           </section>

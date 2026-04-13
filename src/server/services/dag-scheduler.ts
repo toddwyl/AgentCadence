@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import type {
   Pipeline,
   PipelineStep,
@@ -9,7 +10,7 @@ import { resolveAllSteps, stepHasCustomCommand, interpolatePromptVariables } fro
 import type { StepResult } from './tool-runner.js';
 import { getRunnerForTool } from './tool-runner.js';
 import { CommandRunner } from './command-runner.js';
-import { CLIError } from './cli-runner.js';
+import { CLIError, DEFAULT_PTY_COLS, DEFAULT_PTY_ROWS } from './cli-runner.js';
 
 export class SchedulerError extends Error {
   constructor(
@@ -25,6 +26,8 @@ export class SchedulerError extends Error {
 export class ExecutionControl {
   private pipelineStopRequested = false;
   private stoppedStageIDs = new Set<string>();
+  private ptyCols?: number;
+  private ptyRows?: number;
 
   requestPipelineStop() { this.pipelineStopRequested = true; }
   requestStageStop(stageID: string) { this.stoppedStageIDs.add(stageID); }
@@ -32,6 +35,23 @@ export class ExecutionControl {
   isStageStopRequested(stageID: string) { return this.stoppedStageIDs.has(stageID); }
   shouldTerminateStep(stageID: string) {
     return this.pipelineStopRequested || this.stoppedStageIDs.has(stageID);
+  }
+
+  /** Optional terminal size from client (FitAddon / ghostty-web) for node-pty. */
+  setPtyDimensions(cols?: number, rows?: number) {
+    if (typeof cols === 'number' && Number.isFinite(cols) && cols >= 20 && cols <= 500) {
+      this.ptyCols = Math.floor(cols);
+    }
+    if (typeof rows === 'number' && Number.isFinite(rows) && rows >= 5 && rows <= 200) {
+      this.ptyRows = Math.floor(rows);
+    }
+  }
+
+  getPtyDimensions(): { cols: number; rows: number } {
+    return {
+      cols: this.ptyCols ?? DEFAULT_PTY_COLS,
+      rows: this.ptyRows ?? DEFAULT_PTY_ROWS,
+    };
   }
 }
 
@@ -66,6 +86,35 @@ function validateDAG(steps: ReturnType<typeof resolveAllSteps>) {
   }
 }
 
+function buildStepContext(
+  allDependencies: Set<string>,
+  stepResults: Map<string, StepResult>,
+  stepsByID: Map<string, PipelineStep>
+): string {
+  const parts: string[] = [];
+  for (const depID of allDependencies) {
+    const result = stepResults.get(depID);
+    if (!result) continue;
+    const depStep = stepsByID.get(depID);
+    const stepName = depStep?.name || depID;
+    if (result.exitCode === 0) {
+      const output = result.output || '';
+      const truncated = output.length > 2000 ? output.slice(-2000) : output;
+      parts.push(
+        `[Context from previous step "${stepName}" (completed)]:\n${truncated}`
+      );
+    } else {
+      const output = result.output || '';
+      const truncated = output.length > 1000 ? output.slice(-1000) : output;
+      const errorMsg = result.error || 'Unknown error';
+      parts.push(
+        `[Context from previous step "${stepName}" (FAILED)]:\nError: ${errorMsg}\n${truncated}\nPlease be aware of this failure and adjust your approach accordingly.`
+      );
+    }
+  }
+  return parts.join('\n\n');
+}
+
 function resolveStepWithVariables(
   step: PipelineStep,
   globalVariables: Record<string, string>
@@ -91,16 +140,20 @@ async function executeStep(
   const shouldTerminate = executionControl
     ? () => executionControl.shouldTerminateStep(stageID)
     : undefined;
+  const ptyDims = executionControl?.getPtyDimensions() ?? {
+    cols: DEFAULT_PTY_COLS,
+    rows: DEFAULT_PTY_ROWS,
+  };
 
   try {
     if (stepHasCustomCommand(resolved)) {
       return await new CommandRunner().execute(
-        resolved, workingDirectory, profile, shouldTerminate, onOutputChunk
+        resolved, workingDirectory, profile, shouldTerminate, onOutputChunk, ptyDims
       );
     }
     const runner = getRunnerForTool(resolved.tool);
     return await runner.execute(
-      resolved, workingDirectory, profile, shouldTerminate, onOutputChunk
+      resolved, workingDirectory, profile, shouldTerminate, onOutputChunk, ptyDims
     );
   } catch (err) {
     if (err instanceof CLIError && err.code === 'CANCELLED') {
@@ -198,6 +251,27 @@ async function executeStepWithRetry(
   };
 }
 
+/** Callback invoked when a step with reviewMode='review' completes successfully. */
+export type OnStepReview = (
+  stepID: string,
+  workingDirectory: string,
+  changedFiles: string[]
+) => Promise<'accept' | 'reject'>;
+
+/** Get list of changed files in a git working directory (returns [] if not a git repo). */
+function getChangedFiles(workingDirectory: string): string[] {
+  try {
+    const out = execSync('git diff --name-only HEAD', {
+      cwd: workingDirectory,
+      encoding: 'utf-8',
+      timeout: 5000,
+    });
+    return out.split('\n').filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export class DAGScheduler {
   async executePipeline(
     pipeline: Pipeline,
@@ -210,13 +284,15 @@ export class DAGScheduler {
       retryRecords: RetryRecord[],
       failedAttempt: number,
       maxAttempts: number
-    ) => void
+    ) => void,
+    onStepReview?: OnStepReview
   ): Promise<StepResult[]> {
     const allSteps = resolveAllSteps(pipeline);
     validateDAG(allSteps);
 
     const stepsByID = new Map(allSteps.map((r) => [r.step.id, r.step]));
     const finalizedStatuses = new Map<string, StepStatus>();
+    const stepResults = new Map<string, StepResult>();
     const allResults: StepResult[] = [];
     const workDir = pipeline.workingDirectory;
     const globalVariables = pipeline.globalVariables ?? {};
@@ -277,9 +353,13 @@ export class DAGScheduler {
       }
 
       const waveResults = await Promise.all(
-        wave.map((resolved) =>
-          executeStepWithRetry(
-            resolved.step,
+        wave.map((resolved) => {
+          const context = buildStepContext(resolved.allDependencies, stepResults, stepsByID);
+          const stepWithContext = context
+            ? { ...resolved.step, prompt: context + '\n\n' + resolved.step.prompt }
+            : resolved.step;
+          return executeStepWithRetry(
+            stepWithContext,
             resolved.stageID,
             workDir,
             profile,
@@ -287,13 +367,14 @@ export class DAGScheduler {
             (chunk) => onStepOutput(resolved.step.id, chunk),
             onRetryProgress,
             globalVariables
-          )
-        )
+          );
+        })
       );
 
       let shouldStop = false;
       for (const result of waveResults) {
         allResults.push(result);
+        stepResults.set(result.stepID, result);
 
         if (result.cancelledByUser) {
           finalizedStatuses.set(result.stepID, 'skipped');
@@ -312,6 +393,26 @@ export class DAGScheduler {
             shouldStop = true;
           }
         } else {
+          const step = stepsByID.get(result.stepID);
+          const reviewMode = step?.reviewMode ?? 'auto';
+
+          if (reviewMode === 'review' && onStepReview) {
+            const changedFiles = getChangedFiles(workDir);
+            const reviewAction = await onStepReview(result.stepID, workDir, changedFiles);
+            if (reviewAction === 'reject') {
+              // Revert changes
+              try {
+                execSync('git checkout -- .', { cwd: workDir, timeout: 5000 });
+              } catch { /* best-effort revert */ }
+              finalizedStatuses.set(result.stepID, 'failed');
+              onStepStatusChanged(result.stepID, 'failed');
+              result.reviewResult = 'rejected';
+              shouldStop = true;
+              continue;
+            }
+            result.reviewResult = 'accepted';
+          }
+
           finalizedStatuses.set(result.stepID, 'completed');
           onStepStatusChanged(result.stepID, 'completed');
         }

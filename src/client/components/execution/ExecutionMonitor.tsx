@@ -1,7 +1,8 @@
-import { useRef, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Pipeline, PipelineRunRecord, StepStatus } from '@shared/types';
 import { safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
+import { TerminalPane } from './TerminalPane';
 
 type OutputRef =
   | { kind: 'live'; stepId: string }
@@ -17,6 +18,8 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     executingPipelineID,
     selectStep,
     executionError,
+    pendingReview,
+    respondToReview,
     t,
   } = useAppStore();
 
@@ -39,6 +42,31 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
       setOutputRef(null);
     }
   }, [live]);
+
+  // Auto-select first running step so streaming output is visible immediately
+  useEffect(() => {
+    if (!live) return;
+    // If user already selected a step, don't override
+    if (outputRef?.kind === 'live') return;
+    const runningStep = allSteps.find((s) => stepStatuses[s.id] === 'running');
+    if (runningStep) {
+      setOutputRef({ kind: 'live', stepId: runningStep.id });
+      selectStep(runningStep.id);
+    }
+  }, [live, stepStatuses]);
+
+  // When current step completes, auto-switch to next running step
+  useEffect(() => {
+    if (!live || !outputRef || outputRef.kind !== 'live') return;
+    const currentStatus = stepStatuses[outputRef.stepId];
+    if (currentStatus === 'completed' || currentStatus === 'failed' || currentStatus === 'skipped') {
+      const nextRunning = allSteps.find((s) => stepStatuses[s.id] === 'running');
+      if (nextRunning) {
+        setOutputRef({ kind: 'live', stepId: nextRunning.id });
+        selectStep(nextRunning.id);
+      }
+    }
+  }, [live, stepStatuses, outputRef]);
 
   const resolveOutput = (): string | null => {
     if (!outputRef) return null;
@@ -173,7 +201,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                               {stepRetryMaxAttempts[step.id] &&
                                 (stepRetryRecords[step.id]?.length ?? 0) > 0 && (
                                   <div className="text-[9px] text-amber-500 mt-0.5 truncate">
-                                    {t.stepDetail.retryInfo
+                                    {t.execution.retryInfo
                                       .replace('{current}', String(stepRetryRecords[step.id]?.length ?? 0))
                                       .replace('{total}', String(stepRetryMaxAttempts[step.id]))}
                                   </div>
@@ -240,7 +268,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
               )}
             </div>
           )}
-          {executionError && tab === 'running' && live && (
+          {executionError && tab === 'running' && (
             <div className="p-3 bg-red-500/[0.05]" style={{ borderTop: '1px solid rgba(239,68,68,0.2)' }}>
               <p className="text-xs text-red-500">{executionError}</p>
             </div>
@@ -263,11 +291,15 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
               <span className="text-[10px] theme-text-muted ml-auto">{t.execution.outputFromHistory}</span>
             )}
           </div>
-          <OutputPane
+          <TerminalPane
+            key={outputRef ? `${outputRef.kind}-${outputRef.stepId}` : 'terminal-none'}
             output={selectedOutput}
             noOutputText={
               outputRef?.kind === 'record' && !selectedOutput ? t.execution.noSavedOutput : t.execution.noOutput
             }
+            isLive={live && outputRef?.kind === 'live'}
+            pendingReview={pendingReview?.pipelineId === pipeline.id ? pendingReview : null}
+            respondToReview={respondToReview}
           />
         </div>
       </div>
@@ -361,21 +393,6 @@ function runStatusClass(status: PipelineRunRecord['status']) {
   if (status === 'failed') return 'bg-red-500/15 text-red-400';
   if (status === 'cancelled') return 'bg-amber-500/15 text-amber-400';
   return 'bg-slate-500/15 theme-text-muted';
-}
-
-function OutputPane({ output, noOutputText }: { output: string | null; noOutputText: string }) {
-  const bottomRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [output]);
-  if (!output) return <div className="flex-1 flex items-center justify-center theme-text-muted text-sm">{noOutputText}</div>;
-  const capped = output.length > 80000 ? output.slice(0, 80000) + '\n\n…' : output;
-  return (
-    <pre className="flex-1 overflow-auto p-5 text-xs font-mono theme-text-secondary leading-relaxed whitespace-pre-wrap break-all">
-      {capped}
-      <div ref={bottomRef} />
-    </pre>
-  );
 }
 
 function StatusIcon({ status }: { status: StepStatus | string }) {

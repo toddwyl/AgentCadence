@@ -15,6 +15,7 @@ export interface StepResult {
   cancelledByUser: boolean;
   retryRecords?: RetryRecord[];
   totalAttempts?: number;
+  reviewResult?: 'accepted' | 'rejected';
 }
 
 export function stepResultSucceeded(r: StepResult): boolean {
@@ -40,7 +41,8 @@ export interface ToolRunnerInterface {
     workingDirectory: string,
     profile: CLIProfile,
     shouldTerminate?: () => boolean,
-    onOutputChunk?: (chunk: string) => void
+    onOutputChunk?: (chunk: string) => void,
+    ptyDims?: { cols: number; rows: number }
   ): Promise<StepResult>;
 }
 
@@ -48,7 +50,7 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
   const cli = new CLIRunner();
   return {
     toolType: tool,
-    async execute(step, workingDirectory, profile, shouldTerminate, onOutputChunk) {
+    async execute(step, workingDirectory, profile, shouldTerminate, onOutputChunk, ptyDims) {
       const config = profileConfigForTool(profile, tool);
       const args = buildToolArguments(
         config,
@@ -56,14 +58,33 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
         normalizeCursorModelForCLI(step.model, step.tool),
         workingDirectory
       );
-      const result = await cli.run({
-        command: config.executable,
-        args,
-        workingDirectory,
-        stdinData: config.promptMode === 'stdin' ? step.prompt : undefined,
-        shouldTerminate,
-        onOutputChunk,
-      });
+
+      // Use PTY for agent tools (no custom command) so output streams in
+      // real time with full terminal rendering (colors, progress, etc.)
+      const usePTY = !step.command;
+
+      const result = usePTY
+        ? await cli.runPTY({
+            command: config.executable,
+            args,
+            workingDirectory,
+            stdinData: config.promptMode === 'stdin' ? step.prompt : undefined,
+            timeout: profile.stepTimeout || 1800,
+            shouldTerminate,
+            onOutputChunk,
+            cols: ptyDims?.cols,
+            rows: ptyDims?.rows,
+          })
+        : await cli.run({
+            command: config.executable,
+            args,
+            workingDirectory,
+            stdinData: config.promptMode === 'stdin' ? step.prompt : undefined,
+            timeout: profile.stepTimeout || 1800,
+            shouldTerminate,
+            onOutputChunk,
+          });
+
       return {
         stepID: step.id,
         exitCode: result.exitCode,

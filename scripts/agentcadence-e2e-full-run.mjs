@@ -4,20 +4,10 @@
  * POST /api/execution/:id/run, polls until runHistory records completion.
  *
  * Usage: AGENTCADENCE_URL=http://localhost:3712 node scripts/agentcadence-e2e-full-run.mjs
- * (AGENTLINE_* / AGENTFLOW_* env vars still accepted.)
  */
 
-const BASE =
-  process.env.AGENTCADENCE_URL ||
-  process.env.AGENTLINE_URL ||
-  process.env.AGENTFLOW_URL ||
-  'http://localhost:3712';
-const TIMEOUT_MS = Number(
-  process.env.AGENTCADENCE_RUN_TIMEOUT_MS ||
-    process.env.AGENTLINE_RUN_TIMEOUT_MS ||
-    process.env.AGENTFLOW_RUN_TIMEOUT_MS ||
-    120000
-);
+const BASE = process.env.AGENTCADENCE_URL || 'http://localhost:3712';
+const TIMEOUT_MS = Number(process.env.AGENTCADENCE_RUN_TIMEOUT_MS || 120000);
 
 const api = (path, opts = {}) =>
   fetch(`${BASE}/api${path}`, {

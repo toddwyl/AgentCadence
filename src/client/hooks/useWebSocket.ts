@@ -3,6 +3,15 @@ import type { WSMessage } from '@shared/types';
 
 type WSHandler = (msg: WSMessage) => void;
 
+/** Singleton reference so store actions can send WS messages without a hook. */
+let globalWs: WebSocket | null = null;
+
+export function sendWSMessage(msg: WSMessage) {
+  if (globalWs && globalWs.readyState === WebSocket.OPEN) {
+    globalWs.send(JSON.stringify(msg));
+  }
+}
+
 export function useWebSocket(onMessage: WSHandler) {
   const wsRef = useRef<WebSocket | null>(null);
   const handlerRef = useRef(onMessage);
@@ -21,6 +30,7 @@ export function useWebSocket(onMessage: WSHandler) {
     };
 
     ws.onclose = () => {
+      globalWs = null;
       setTimeout(connect, 2000);
     };
 
@@ -29,12 +39,14 @@ export function useWebSocket(onMessage: WSHandler) {
     };
 
     wsRef.current = ws;
+    globalWs = ws;
   }, []);
 
   useEffect(() => {
     connect();
     return () => {
       wsRef.current?.close();
+      globalWs = null;
     };
   }, [connect]);
 }

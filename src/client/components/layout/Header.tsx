@@ -96,8 +96,13 @@ export function Header() {
             {t.header.stop}
           </button>
         ) : (
-          <button onClick={() => runPipeline(pipeline.id)} disabled={pipeline.stages.length === 0}
-            className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+          <button
+            type="button"
+            data-testid="header-run-pipeline"
+            onClick={() => runPipeline(pipeline.id)}
+            disabled={pipeline.stages.length === 0}
+            className="btn-primary text-xs flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" /></svg>
             {t.header.run}
           </button>

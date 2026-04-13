@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import type { WSMessage, RetryRecord } from '@shared/types';
+import type { WSMessage, RetryRecord, ActiveExecutionRunPayload, StepStatus } from '@shared/types';
 import { useAppStore } from './store/app-store';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Sidebar } from './components/layout/Sidebar';
@@ -21,33 +21,45 @@ export default function App() {
   }, []);
 
   const handleWSMessage = useCallback((msg: WSMessage) => {
-    const p = msg.payload as Record<string, any>;
+    const s = useAppStore.getState();
+    const p = msg.payload as Record<string, unknown>;
     switch (msg.type) {
       case 'step_status_changed':
-        store.handleStepStatusChanged(p.pipelineID, p.stepID, p.status); break;
+        s.handleStepStatusChanged(p.pipelineID as string, p.stepID as string, p.status as StepStatus); break;
       case 'step_output':
-        store.handleStepOutput(p.pipelineID, p.stepID, p.output); break;
+        s.handleStepOutput(p.pipelineID as string, p.stepID as string, p.output as string); break;
       case 'step_retry':
-        store.handleStepRetry(
-          p.pipelineID,
-          p.stepID,
+        s.handleStepRetry(
+          p.pipelineID as string,
+          p.stepID as string,
           p.retryRecords as RetryRecord[],
           p.failedAttempt as number,
           p.maxAttempts as number
         );
         break;
       case 'pipeline_run_started':
-        store.handleRunStarted(p.pipelineID); break;
+        s.handleRunStarted(p.pipelineID as string); break;
       case 'pipeline_run_finished':
-        store.handleRunFinished(p.pipelineID, p.status, p.error); break;
+        s.handleRunFinished(p.pipelineID as string, p.status as string, p.error as string | undefined); break;
       case 'planning_phase':
-        store.handlePlanningPhase(p.phase); break;
+        s.handlePlanningPhase(p.phase as import('@shared/types').PlanningPhase); break;
       case 'planning_log':
-        store.handlePlanningLog(p.chunk); break;
+        s.handlePlanningLog(p.chunk as string); break;
       case 'planning_complete':
-        store.handlePlanningComplete(p.pipeline); break;
+        s.handlePlanningComplete(p.pipeline as import('@shared/types').Pipeline); break;
       case 'planning_error':
-        store.handlePlanningError(p.error); break;
+        s.handlePlanningError(p.error as string); break;
+      case 'step_review_requested':
+        s.handleStepReviewRequested(
+          p.pipelineId as string,
+          p.stepId as string,
+          p.workingDirectory as string,
+          p.changedFiles as string[]
+        );
+        break;
+      case 'execution_state_snapshot':
+        s.hydrateExecutionSnapshot((p.runs ?? []) as ActiveExecutionRunPayload[]);
+        break;
     }
   }, []);
 
@@ -56,23 +68,37 @@ export default function App() {
   const pipeline = store.selectedPipeline();
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-        <main className="flex-1 overflow-hidden">
-          {pipeline ? (
-            store.showFlowchart ? (
-              <FlowchartView pipeline={pipeline} />
-            ) : store.showMonitor || (store.isExecuting && store.executingPipelineID === pipeline.id) ? (
-              <ExecutionMonitor pipeline={pipeline} />
+    <div className="flex flex-col h-screen overflow-hidden">
+      {store.bootstrapError && (
+        <div
+          className="shrink-0 px-4 py-3 text-sm flex flex-wrap items-center gap-3"
+          style={{ borderBottom: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)' }}
+        >
+          <span className="theme-text">{store.t.app.apiUnavailable}</span>
+          <code className="text-[11px] theme-text-muted break-all max-w-xl">{store.bootstrapError}</code>
+          <button type="button" className="btn-primary text-xs py-1 px-2" onClick={() => store.loadInitialData()}>
+            {store.t.app.retryLoad}
+          </button>
+        </div>
+      )}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <Header />
+          <main className="flex-1 overflow-hidden">
+            {pipeline ? (
+              store.showFlowchart ? (
+                <FlowchartView pipeline={pipeline} />
+              ) : store.showMonitor || (store.isExecuting && store.executingPipelineID === pipeline.id) ? (
+                <ExecutionMonitor pipeline={pipeline} />
+              ) : (
+                <PipelineEditor pipeline={pipeline} />
+              )
             ) : (
-              <PipelineEditor pipeline={pipeline} />
-            )
-          ) : (
-            <EmptyState />
-          )}
-        </main>
+              <EmptyState />
+            )}
+          </main>
+        </div>
       </div>
       {store.showAutoPlanner && <AutoPlannerDialog />}
       {store.showSettings && <CLIProfileSetup />}

@@ -112,10 +112,10 @@ PORT=8080 npm start
 npm run dev
 ```
 
-- Client dev server (Vite): typically `http://localhost:5173`
-- API / static preview: see terminal output (default API `3712` unless configured)
+- Client (Vite): **`http://localhost:5173`** — `/api` and `/ws` are proxied to the API on **`3712`** (watch the `dev:server` line for `running at http://localhost:3712`).
+- Pipeline data and run history are stored on the **server host** (see store path in code); **History** stays empty until you have **Run** at least once.
 
-Open the URL printed by the server in your browser.
+Use the **5173** URL in the browser (not 3712 alone — that serves API + static build without Vite HMR).
 
 ---
 

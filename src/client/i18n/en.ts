@@ -4,6 +4,9 @@ export const en = {
     subtitle: 'Orchestration Workbench',
     welcome: 'Welcome to AgentCadence',
     welcomeDesc: 'Create a pipeline or use AI to generate one from a natural language description.',
+    apiUnavailable:
+      'Cannot reach the API (expected at :3712 when using the Vite dev server on :5173). Check the dev:server terminal and that port 3712 is free.',
+    retryLoad: 'Retry',
   },
   sidebar: {
     newPipeline: 'New Pipeline',
@@ -53,6 +56,7 @@ export const en = {
     stepName: 'Step name',
     prompt: 'Prompt',
     promptPlaceholder: 'Prompt for this step',
+    pipelineSettings: 'Pipeline Settings',
   },
   stepDetail: {
     title: 'Step Details',
@@ -88,6 +92,11 @@ export const en = {
     badgeSkill: 'Skill',
     badgeCommand: 'Cmd',
     badgeSubagent: 'Sub',
+    reviewMode: 'Completion Review',
+    reviewAuto: 'Auto Continue',
+    reviewWait: 'Wait for IDE Review',
+    reviewModeHint:
+      'The Accept/Reject bar appears only if you choose “Wait for IDE review”. If you already use Auto continue but the run still seems stuck until you confirm, Cursor CLI is likely waiting inside the terminal (e.g. before applying edits). Add --force to base arguments in Settings, or see Cursor headless / print mode docs.',
   },
   flowchart: {},
   execution: {
@@ -109,6 +118,12 @@ export const en = {
     runStatus: 'Status',
     outputFromHistory: 'Output (saved with this run)',
     noSavedOutput: 'No output was captured for this step',
+    reviewPending: 'Waiting for review...',
+    reviewAccept: 'Accept',
+    reviewReject: 'Reject',
+    reviewBanner: 'Step "{name}" completed. Review changes in your IDE or accept/reject here.',
+    changedFiles: 'Changed files',
+    jumpToBottom: 'Scroll to bottom',
   },
   planner: {
     title: 'AI Pipeline Generator',
@@ -131,11 +146,23 @@ export const en = {
   settings: {
     title: 'Settings',
     cliProfile: 'CLI',
-    cliProfileHint: 'Default tools: cursor-agent, codex, claude. Detect resolves their paths on this machine.',
+    cliProfileHint:
+      'Default tools: cursor-agent, codex, claude. The server auto-detects and saves absolute paths on startup; use Detect Environment anytime to refresh.',
     detectEnv: 'Detect Environment',
     detecting: 'Detecting...',
     notFound: 'not found',
-    plannerConfig: 'Planner Configuration',
+    toolDefaultModels: 'Pipeline Execution Tools',
+    toolDefaultModelsHint: 'Configure default model and arguments for each agent tool.',
+    model: 'Model',
+    baseArgs: 'Args',
+      baseArgsPlaceholder: 'e.g. --trust --force --output-format stream-json --stream-partial-output',
+    stepTimeout: 'Step Execution Timeout',
+    stepTimeoutHint: 'Maximum time (seconds) each step is allowed to run before being terminated.',
+    seconds: 'seconds',
+    minutes: 'min',
+    plannerConfig: 'AI Planner Configuration',
+    plannerConfigHint: 'Select which tool and model to use for AI pipeline generation.',
+    plannerTool: 'Planner Tool',
     plannerModel: 'Planner Model',
     customPolicy: 'Custom Planning Policy',
     customPolicyPlaceholder: 'Optional additional instructions for the planner...',
@@ -143,6 +170,7 @@ export const en = {
     themeLight: 'Light',
     themeDark: 'Dark',
     language: 'Language',
+    globalSettings: 'Global Settings',
   },
   templates: {
     title: 'Pipeline Templates',
