@@ -64,7 +64,11 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
 
       const usePTY = !step.command;
 
-      const streamWrap = createCliStreamPresenter(onOutputChunk, { tool, args }, onAgentStreamEvent);
+      const streamWrap = createCliStreamPresenter(
+        onOutputChunk,
+        { tool, args, workingDirectory },
+        onAgentStreamEvent
+      );
 
       const result = usePTY
         ? await cli.runPTY({

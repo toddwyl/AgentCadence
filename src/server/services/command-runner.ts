@@ -90,7 +90,7 @@ export class CommandRunner {
     const runViaPty = !!(exe && allExes.has(exe));
     const streamWrap = createCliStreamPresenter(
       onOutputChunk,
-      { tool: step.tool, commandLine: finalCommand },
+      { tool: step.tool, commandLine: finalCommand, workingDirectory },
       onAgentStreamEvent
     );
 

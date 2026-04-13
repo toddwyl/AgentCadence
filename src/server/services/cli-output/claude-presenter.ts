@@ -99,15 +99,18 @@ function emitAssistantMessage(
       });
       continue;
     }
-    if (ty === 'thinking' && typeof b.thinking === 'string') {
-      const t = b.thinking.trim();
+    if (ty === 'thinking' || ty === 'reasoning') {
+      const t =
+        (typeof b.thinking === 'string' && b.thinking.trim()) ||
+        (typeof b.text === 'string' && b.text.trim()) ||
+        '';
       if (t) state.emitThinkingDelta(t, emit);
       continue;
     }
     // tool_result blocks carry tool output but stream-json here does not correlate them to tool_use ids
     // or completion phases reliably; emitting synthetic tool completed events would duplicate or mis-order
     // the feed versus dedicated tool lifecycle lines, so we only skip text emission for tool_result.
-    if (typeof b.text === 'string' && ty !== 'tool_result') {
+    if (typeof b.text === 'string' && ty !== 'tool_result' && ty !== 'thinking' && ty !== 'reasoning') {
       state.emitTextDelta(b.text, emit);
     }
   }

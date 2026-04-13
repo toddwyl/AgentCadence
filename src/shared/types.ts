@@ -471,6 +471,8 @@ export type AgentFeedItem =
       /** Stable id from the agent stream when present (preferred merge key) */
       callId?: string;
       resultPreview?: string;
+      /** Unified diff from `git diff` after edit-like tools (web activity pane). */
+      gitDiffUnified?: string;
       ok?: boolean;
     }
   | { kind: 'result'; ok: boolean; durationMs?: number | null }
@@ -490,6 +492,7 @@ export type AgentStreamUiEvent =
       detail?: string;
       callId?: string;
       resultPreview?: string;
+      gitDiffUnified?: string;
       ok?: boolean;
     }
   | { kind: 'turn_result'; ok: boolean; durationMs?: number | null }

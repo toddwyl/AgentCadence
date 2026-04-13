@@ -136,6 +136,7 @@ export const zh = {
     toolPhaseRunning: '进行中',
     toolPhaseDone: '完成',
     toolResult: '结果',
+    toolGitDiff: 'Git 差异',
     todoTitle: '任务',
   },
   planner: {

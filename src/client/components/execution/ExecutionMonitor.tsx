@@ -393,6 +393,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                 toolPhaseRunning: t.execution.toolPhaseRunning,
                 toolPhaseDone: t.execution.toolPhaseDone,
                 toolResult: t.execution.toolResult,
+                toolGitDiff: t.execution.toolGitDiff,
                 todoTitle: t.execution.todoTitle,
               }}
             />

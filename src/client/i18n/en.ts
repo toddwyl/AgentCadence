@@ -136,6 +136,7 @@ export const en = {
     toolPhaseRunning: 'Running',
     toolPhaseDone: 'Done',
     toolResult: 'Result',
+    toolGitDiff: 'Git diff',
     todoTitle: 'Tasks',
   },
   planner: {

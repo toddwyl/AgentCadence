@@ -22,6 +22,8 @@ export type CliPresenterToolContext = {
   args?: string[];
   /** Resolved shell command when running via CommandRunner. */
   commandLine?: string;
+  /** Repo/step cwd — Cursor presenter uses this to attach `git diff` after edit tools. */
+  workingDirectory?: string;
 };
 
 /**
@@ -40,7 +42,9 @@ export function createCliStreamPresenter(
 
   if (ctx.tool === 'cursor') {
     if (shouldPrettifyCursorStreamJson(args) || commandLineUsesCursorStreamJson(line)) {
-      return createCursorStreamJsonWrapper(onOutputChunk, onUiEvent);
+      return createCursorStreamJsonWrapper(onOutputChunk, onUiEvent, {
+        workingDirectory: ctx.workingDirectory,
+      });
     }
   }
   if (ctx.tool === 'claude') {
