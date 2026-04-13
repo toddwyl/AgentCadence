@@ -96,7 +96,7 @@ export const zh = {
     reviewAuto: '自动继续',
     reviewWait: '等待 IDE 审查',
     reviewModeHint:
-      '界面上的「接受/拒绝」仅在勾选「等待 IDE 审查」且该步成功结束后才会出现，并会暂停整条流水线。若已选「自动继续」却仍要点接受才往下走，多半是 Cursor CLI 在伪终端里等人确认（例如写文件前）。可在「设置」的基础参数中加入 --force，或查阅 Cursor 无头 / print 模式文档。输出若成批出现，请确认已使用 --output-format stream-json（及可选 --stream-partial-output），旧配置里仍是 text 则只会最后一次性输出。',
+      '界面上的「接受/拒绝」仅在勾选「等待 IDE 审查」且该步成功结束后才会出现，并会暂停整条流水线。若已选「自动继续」却仍要点接受才往下走，多半是 Cursor CLI 在伪终端里等人确认（例如写文件前）。可在「设置」的基础参数中加入 --force，或查阅 Cursor 无头 / print 模式文档。流式请使用 --output-format stream-json；不建议再加 --stream-partial-output（易产生重复碎片）。',
   },
   flowchart: {},
   execution: {
@@ -124,6 +124,19 @@ export const zh = {
     reviewBanner: '步骤「{name}」已完成。在 IDE 中审查变更或在此接受/拒绝。',
     changedFiles: '变更文件',
     jumpToBottom: '回到底部',
+    activityTab: '活动',
+    rawLogTab: '原始日志',
+    noActivity: '使用 Cursor / Claude / Codex 的 JSON 流时，这里显示结构化活动；完整 PTY 输出请切到「原始日志」。',
+    labelThinking: '思考',
+    labelTool: '工具',
+    labelSession: '会话',
+    labelUser: '用户',
+    labelCompleted: '已完成',
+    labelFailed: '失败',
+    toolPhaseRunning: '进行中',
+    toolPhaseDone: '完成',
+    toolResult: '结果',
+    todoTitle: '任务',
   },
   planner: {
     title: 'AI Pipeline 生成器',
@@ -155,7 +168,8 @@ export const zh = {
     toolDefaultModelsHint: '配置每个 Agent 工具的默认模型和参数。',
     model: '模型',
     baseArgs: '参数',
-      baseArgsPlaceholder: '例如 --trust --force --output-format stream-json --stream-partial-output',
+      baseArgsPlaceholder:
+        'Cursor: --output-format stream-json；Claude: --output-format stream-json；Codex exec: --json',
     stepTimeout: '步骤执行超时',
     stepTimeoutHint: '每个步骤允许运行的最大时间（秒），超时将被终止。',
     seconds: '秒',

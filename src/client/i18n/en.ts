@@ -96,7 +96,7 @@ export const en = {
     reviewAuto: 'Auto Continue',
     reviewWait: 'Wait for IDE Review',
     reviewModeHint:
-      'The Accept/Reject bar appears only if you choose “Wait for IDE review”. If you already use Auto continue but the run still seems stuck until you confirm, Cursor CLI is likely waiting inside the terminal (e.g. before applying edits). Add --force to base arguments in Settings, or see Cursor headless / print mode docs.',
+      'The Accept/Reject bar appears only if you choose “Wait for IDE review”. If you already use Auto continue but the run still seems stuck until you confirm, Cursor CLI is likely waiting inside the terminal (e.g. before applying edits). Add --force to base arguments in Settings, or see Cursor headless / print mode docs. Use --output-format stream-json for streaming; avoid --stream-partial-output (noisy duplicate fragments).',
   },
   flowchart: {},
   execution: {
@@ -124,6 +124,19 @@ export const en = {
     reviewBanner: 'Step "{name}" completed. Review changes in your IDE or accept/reject here.',
     changedFiles: 'Changed files',
     jumpToBottom: 'Scroll to bottom',
+    activityTab: 'Activity',
+    rawLogTab: 'Raw log',
+    noActivity: 'Structured activity appears here for Cursor / Claude / Codex JSON streams. Use Raw log for full PTY output.',
+    labelThinking: 'Thinking',
+    labelTool: 'Tool',
+    labelSession: 'Session',
+    labelUser: 'User',
+    labelCompleted: 'Completed',
+    labelFailed: 'Failed',
+    toolPhaseRunning: 'Running',
+    toolPhaseDone: 'Done',
+    toolResult: 'Result',
+    todoTitle: 'Tasks',
   },
   planner: {
     title: 'AI Pipeline Generator',
@@ -155,7 +168,8 @@ export const en = {
     toolDefaultModelsHint: 'Configure default model and arguments for each agent tool.',
     model: 'Model',
     baseArgs: 'Args',
-      baseArgsPlaceholder: 'e.g. --trust --force --output-format stream-json --stream-partial-output',
+      baseArgsPlaceholder:
+        'Cursor: --output-format stream-json; Claude: --output-format stream-json; codex exec: --json',
     stepTimeout: 'Step Execution Timeout',
     stepTimeoutHint: 'Maximum time (seconds) each step is allowed to run before being terminated.',
     seconds: 'seconds',

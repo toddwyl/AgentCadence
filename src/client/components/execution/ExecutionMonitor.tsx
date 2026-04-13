@@ -392,6 +392,8 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                 failed: t.execution.labelFailed,
                 toolPhaseRunning: t.execution.toolPhaseRunning,
                 toolPhaseDone: t.execution.toolPhaseDone,
+                toolResult: t.execution.toolResult,
+                todoTitle: t.execution.todoTitle,
               }}
             />
           ) : (

@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Circle, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { AgentFeedItem } from '@shared/types';
 import { AgentMarkdownBody } from './AgentMarkdownBody';
@@ -11,6 +11,8 @@ export type AgentActivityFeedLabels = {
   failed: string;
   toolPhaseRunning: string;
   toolPhaseDone: string;
+  toolResult: string;
+  todoTitle: string;
 };
 
 export interface AgentActivityFeedProps {
@@ -62,6 +64,7 @@ export function AgentActivityFeed({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [openThinking, setOpenThinking] = useState<Record<number, boolean>>({});
   const [openTools, setOpenTools] = useState<Record<number, boolean>>({});
+  const [openTodos, setOpenTodos] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!isLive || !bottomRef.current) return;
@@ -209,7 +212,74 @@ export function AgentActivityFeed({
                         {secondary}
                       </div>
                     ) : null}
+                    {item.resultPreview ? (
+                      <div className="mt-2">
+                        <div className="text-[10px] font-medium theme-text-muted mb-1">{labels.toolResult}</div>
+                        <div
+                          className={`text-[11px] font-mono rounded-md p-2 border theme-bg-0 whitespace-pre-wrap max-h-40 overflow-y-auto ${
+                            item.ok === false
+                              ? 'border-red-500/40 text-red-200/90'
+                              : 'border-[var(--color-border)] theme-text-muted'
+                          }`}
+                        >
+                          {item.resultPreview}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
+                ) : null}
+              </div>
+            );
+          }
+          case 'todo': {
+            const expanded = openTodos[i] ?? false;
+            return (
+              <div
+                key={`todo-${i}`}
+                className="rounded-lg overflow-hidden theme-bg-0"
+                style={{ border: '1px solid var(--color-border)' }}
+              >
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-left theme-hover"
+                  onClick={() => setOpenTodos((s) => ({ ...s, [i]: !expanded }))}
+                >
+                  <span className="text-[12px] font-medium theme-text-secondary">{labels.todoTitle}</span>
+                  <span className="flex-1" />
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 shrink-0 opacity-60 theme-text-muted transition-transform ${
+                      expanded ? 'rotate-180' : ''
+                    }`}
+                    aria-hidden
+                  />
+                </button>
+                {expanded ? (
+                  <ul className="px-3 pb-3 pt-2 space-y-2 border-t border-[var(--color-border)] border-opacity-50 list-none m-0">
+                    {item.items.map((todo) => (
+                      <li key={todo.id} className="flex items-start gap-2 text-[11px] theme-text-secondary">
+                        {todo.status === 'completed' ? (
+                          <CheckCircle2
+                            className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-500/90"
+                            aria-hidden
+                          />
+                        ) : todo.status === 'in_progress' ? (
+                          <Loader2
+                            className="w-3.5 h-3.5 shrink-0 mt-0.5 animate-spin opacity-80"
+                            aria-hidden
+                          />
+                        ) : (
+                          <Circle className="w-3.5 h-3.5 shrink-0 mt-0.5 opacity-60" aria-hidden />
+                        )}
+                        <span
+                          className={`min-w-0 flex-1 leading-snug ${
+                            todo.status === 'completed' ? 'line-through opacity-70' : ''
+                          }`}
+                        >
+                          {todo.content}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
               </div>
             );
