@@ -2,16 +2,30 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Pipeline, PipelineRunRecord, StepStatus } from '@shared/types';
 import { safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
+import { AgentActivityFeed } from './AgentActivityFeed';
 import { TerminalPane } from './TerminalPane';
 
 type OutputRef =
   | { kind: 'live'; stepId: string }
   | { kind: 'record'; runId: string; stepId: string };
 
+function execMonitorTabClass(isActive: boolean): string {
+  return `px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+    isActive ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
+  }`;
+}
+
+function outputSubPanelTabClass(isActive: boolean): string {
+  return `px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+    isActive ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
+  }`;
+}
+
 export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
   const {
     stepStatuses,
     stepOutputs,
+    stepAgentFeeds,
     stepRetryRecords,
     stepRetryMaxAttempts,
     isExecuting,
@@ -26,6 +40,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
   const live = isExecuting && executingPipelineID === pipeline.id;
   const [tab, setTab] = useState<'running' | 'history'>(() => (live ? 'running' : 'history'));
   const [outputRef, setOutputRef] = useState<OutputRef | null>(null);
+  const [outputPanel, setOutputPanel] = useState<'activity' | 'raw'>('activity');
 
   const sortedRuns = useMemo(
     () =>
@@ -40,6 +55,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     if (live) {
       setTab('running');
       setOutputRef(null);
+      setOutputPanel('activity');
     }
   }, [live]);
 
@@ -104,24 +120,37 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     ? allSteps.find((s) => s.id === outputRef.stepId)?.name
     : null;
 
+  const selectedStepId = outputRef?.stepId ?? null;
+  const activityItems = selectedStepId ? stepAgentFeeds[selectedStepId] ?? [] : [];
+  const reviewForStep =
+    pendingReview?.pipelineId === pipeline.id &&
+    selectedStepId != null &&
+    pendingReview.stepId === selectedStepId
+      ? pendingReview
+      : null;
+
+  let runningSummaryLine = '—';
+  if (live) {
+    runningSummaryLine = `${completedCount}/${allSteps.length} ${t.execution.completed}`;
+  } else if (latestRun) {
+    const st = latestRun.status;
+    runningSummaryLine = st.charAt(0).toUpperCase() + st.slice(1);
+  }
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex px-4 pt-3 pb-2 gap-2 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
         <button
           type="button"
           onClick={() => setTab('running')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            tab === 'running' ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
-          }`}
+          className={execMonitorTabClass(tab === 'running')}
         >
           {t.execution.runningTab}
         </button>
         <button
           type="button"
           onClick={() => setTab('history')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-            tab === 'history' ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
-          }`}
+          className={execMonitorTabClass(tab === 'history')}
         >
           {t.execution.historyTab}
         </button>
@@ -134,13 +163,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
               <div className="p-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium theme-text-secondary">{t.execution.pipelineMode}</span>
-                  <span className="text-xs theme-text-muted">
-                    {live
-                      ? `${completedCount}/${allSteps.length} ${t.execution.completed}`
-                      :                     latestRun
-                        ? latestRun.status.charAt(0).toUpperCase() + latestRun.status.slice(1)
-                        : '—'}
-                  </span>
+                  <span className="text-xs theme-text-muted">{runningSummaryLine}</span>
                 </div>
                 {live && (
                   <>
@@ -276,7 +299,55 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-5 py-3 flex items-center gap-2 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          {reviewForStep && (
+            <div
+              className="flex items-center gap-3 px-4 py-2.5 text-xs shrink-0"
+              style={{
+                backgroundColor: 'rgba(56, 139, 253, 0.1)',
+                borderBottom: '1px solid rgba(56, 139, 253, 0.3)',
+                color: '#58a6ff',
+              }}
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                />
+              </svg>
+              <span className="flex-1">
+                {t.execution.reviewBanner.replace('{name}', headerStepName ?? reviewForStep.stepId)}
+              </span>
+              <button
+                type="button"
+                onClick={() => respondToReview('accept')}
+                className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: 'rgba(63, 185, 80, 0.2)',
+                  color: '#3fb950',
+                  border: '1px solid rgba(63, 185, 80, 0.4)',
+                }}
+              >
+                {t.execution.reviewAccept}
+              </button>
+              <button
+                type="button"
+                onClick={() => respondToReview('reject')}
+                className="px-3 py-1 rounded text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: 'rgba(248, 81, 73, 0.2)',
+                  color: '#f85149',
+                  border: '1px solid rgba(248, 81, 73, 0.4)',
+                }}
+              >
+                {t.execution.reviewReject}
+              </button>
+            </div>
+          )}
+          <div
+            className="px-4 py-2.5 flex flex-wrap items-center gap-2 shrink-0"
+            style={{ borderBottom: '1px solid var(--color-border)' }}
+          >
             <svg className="w-4 h-4 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path
                 strokeLinecap="round"
@@ -284,23 +355,58 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                 d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z"
               />
             </svg>
-            <span className="text-xs theme-text-tertiary">
+            <span className="text-xs theme-text-tertiary flex-1 min-w-[8rem]">
               {headerStepName || t.execution.selectStep}
             </span>
             {outputRef?.kind === 'record' && (
-              <span className="text-[10px] theme-text-muted ml-auto">{t.execution.outputFromHistory}</span>
+              <span className="text-[10px] theme-text-muted">{t.execution.outputFromHistory}</span>
             )}
+            <div className="flex gap-1 ml-auto">
+              <button
+                type="button"
+                onClick={() => setOutputPanel('activity')}
+                className={outputSubPanelTabClass(outputPanel === 'activity')}
+              >
+                {t.execution.activityTab}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOutputPanel('raw')}
+                className={outputSubPanelTabClass(outputPanel === 'raw')}
+              >
+                {t.execution.rawLogTab}
+              </button>
+            </div>
           </div>
-          <TerminalPane
-            key={outputRef ? `${outputRef.kind}-${outputRef.stepId}` : 'terminal-none'}
-            output={selectedOutput}
-            noOutputText={
-              outputRef?.kind === 'record' && !selectedOutput ? t.execution.noSavedOutput : t.execution.noOutput
-            }
-            isLive={live && outputRef?.kind === 'live'}
-            pendingReview={pendingReview?.pipelineId === pipeline.id ? pendingReview : null}
-            respondToReview={respondToReview}
-          />
+          {outputPanel === 'activity' ? (
+            <AgentActivityFeed
+              key={outputRef ? `${outputRef.kind}-${outputRef.stepId}-act` : 'act-none'}
+              items={activityItems}
+              isLive={live && outputRef?.kind === 'live'}
+              noActivityText={t.execution.noActivity}
+              labels={{
+                thinking: t.execution.labelThinking,
+                tool: t.execution.labelTool,
+                session: t.execution.labelSession,
+                completed: t.execution.labelCompleted,
+                failed: t.execution.labelFailed,
+                toolPhaseRunning: t.execution.toolPhaseRunning,
+                toolPhaseDone: t.execution.toolPhaseDone,
+              }}
+            />
+          ) : (
+            <TerminalPane
+              key={outputRef ? `${outputRef.kind}-${outputRef.stepId}-raw` : 'terminal-none'}
+              output={selectedOutput}
+              noOutputText={
+                outputRef?.kind === 'record' && !selectedOutput ? t.execution.noSavedOutput : t.execution.noOutput
+              }
+              isLive={live && outputRef?.kind === 'live'}
+              suppressReviewBanner
+              pendingReview={pendingReview?.pipelineId === pipeline.id ? pendingReview : null}
+              respondToReview={respondToReview}
+            />
+          )}
         </div>
       </div>
     </div>
