@@ -10,6 +10,8 @@ interface TerminalPaneProps {
   output: string | null;
   noOutputText: string;
   isLive?: boolean;
+  /** When false, parent renders the review banner (e.g. above activity + raw tabs). */
+  suppressReviewBanner?: boolean;
   pendingReview: {
     pipelineId: string;
     stepId: string;
@@ -23,6 +25,7 @@ export function TerminalPane({
   output,
   noOutputText,
   isLive,
+  suppressReviewBanner,
   pendingReview,
   respondToReview,
 }: TerminalPaneProps) {
@@ -302,7 +305,7 @@ export function TerminalPane({
 
   return (
     <div className="flex-1 flex flex-col min-h-0" style={{ backgroundColor: '#0d1117' }}>
-      {pendingReview && (
+      {pendingReview && !suppressReviewBanner && (
         <div
           className="flex items-center gap-3 px-4 py-3 text-xs shrink-0"
           style={{

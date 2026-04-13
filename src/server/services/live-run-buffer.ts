@@ -1,5 +1,12 @@
-import type { Pipeline, ActiveExecutionRunPayload, StepStatus, RetryRecord } from '../../shared/types.js';
+import type {
+  Pipeline,
+  ActiveExecutionRunPayload,
+  StepStatus,
+  RetryRecord,
+  AgentStreamUiEvent,
+} from '../../shared/types.js';
 import { pipelineAllSteps } from '../../shared/types.js';
+import { applyAgentStreamEvent } from '../../shared/agent-feed-merge.js';
 
 /** Tail cap per step to bound memory (aligned with planning log scale in app-store). */
 const MAX_STEP_OUTPUT_CHARS = 120_000;
@@ -21,6 +28,7 @@ export function initLiveRun(pipeline: Pipeline, runId: string): void {
     runID: runId,
     stepStatuses,
     stepOutputs: {},
+    stepAgentFeeds: {},
     stepRetryRecords: {},
     stepRetryMaxAttempts: {},
   });
@@ -35,6 +43,18 @@ export function appendStepOutput(pipelineID: string, stepID: string, chunk: stri
   if (!r) return;
   const prev = r.stepOutputs[stepID] || '';
   r.stepOutputs[stepID] = capOutput(prev + chunk);
+}
+
+export function appendAgentStreamEvent(
+  pipelineID: string,
+  stepID: string,
+  event: AgentStreamUiEvent
+): void {
+  const r = runs.get(pipelineID);
+  if (!r) return;
+  if (!r.stepAgentFeeds) r.stepAgentFeeds = {};
+  const prev = r.stepAgentFeeds[stepID] ?? [];
+  r.stepAgentFeeds[stepID] = applyAgentStreamEvent(prev, event);
 }
 
 export function setStepStatus(pipelineID: string, stepID: string, status: StepStatus): void {

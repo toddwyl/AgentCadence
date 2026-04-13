@@ -1,4 +1,4 @@
-import type { PipelineStep, CLIProfile } from '../../shared/types.js';
+import type { PipelineStep, CLIProfile, AgentStreamUiEvent } from '../../shared/types.js';
 import {
   stepHasCustomCommand,
   profileConfigForTool,
@@ -6,6 +6,7 @@ import {
   normalizeCursorModelForCLI,
 } from '../../shared/types.js';
 import { CLIRunner, CLIError } from './cli-runner.js';
+import { createCliStreamPresenter } from './cli-output/factory.js';
 import type { StepResult } from './tool-runner.js';
 
 function shellQuote(value: string): string {
@@ -51,7 +52,8 @@ export class CommandRunner {
     profile: CLIProfile,
     shouldTerminate?: () => boolean,
     onOutputChunk?: (chunk: string) => void,
-    ptyDims?: { cols: number; rows: number }
+    ptyDims?: { cols: number; rows: number },
+    onAgentStreamEvent?: (e: AgentStreamUiEvent) => void
   ): Promise<StepResult> {
     const commandLine = effectiveCommand(step, profile);
     if (!commandLine) {
@@ -86,6 +88,12 @@ export class CommandRunner {
     }
 
     const runViaPty = !!(exe && allExes.has(exe));
+    const streamWrap = createCliStreamPresenter(
+      onOutputChunk,
+      { tool: step.tool, commandLine: finalCommand },
+      onAgentStreamEvent
+    );
+
     const result = runViaPty
       ? await this.cli.runPTY({
           command: 'zsh',
@@ -94,7 +102,7 @@ export class CommandRunner {
           stdinData,
           timeout: profile.stepTimeout || 1800,
           shouldTerminate,
-          onOutputChunk,
+          onOutputChunk: streamWrap ? streamWrap.onChunk : onOutputChunk,
           cols: ptyDims?.cols,
           rows: ptyDims?.rows,
         })
@@ -105,12 +113,14 @@ export class CommandRunner {
           stdinData,
           timeout: profile.stepTimeout || 1800,
           shouldTerminate,
-          onOutputChunk,
+          onOutputChunk: streamWrap ? streamWrap.onChunk : onOutputChunk,
         });
+
+    const prettyStdout = streamWrap ? streamWrap.finish(result.stdout) : result.stdout;
 
     let output: string;
     if (result.exitCode !== 0) {
-      const stdout = result.stdout.trim();
+      const stdout = prettyStdout.trim();
       const stderr = (result.stderr || '').trim();
       output = [
         'Command failed.',
@@ -134,7 +144,7 @@ export class CommandRunner {
         stderr || '(empty)',
       ].join('\n');
     } else {
-      output = result.stdout;
+      output = prettyStdout;
     }
 
     const stderr = result.stderr.trim();

@@ -9,8 +9,11 @@ import type {
   ExecutionNotificationSettings,
   RetryRecord,
   ActiveExecutionRunPayload,
+  AgentStreamUiEvent,
+  AgentFeedItem,
 } from '@shared/types';
 import { pipelineAllSteps } from '@shared/types';
+import { applyAgentStreamEvent } from '@shared/agent-feed-merge';
 import { api } from '../lib/api';
 import { sendWSMessage } from '../hooks/useWebSocket';
 import type { Locale, Translations } from '../i18n';
@@ -40,6 +43,8 @@ interface AppState {
   selectedStepID: string | null;
   stepStatuses: Record<string, StepStatus>;
   stepOutputs: Record<string, string>;
+  /** OpenClaw-style merged blocks per step (WebSocket agent_stream_event) */
+  stepAgentFeeds: Record<string, AgentFeedItem[]>;
   /** Live retry progress during current run (WebSocket step_retry) */
   stepRetryRecords: Record<string, RetryRecord[]>;
   stepRetryMaxAttempts: Record<string, number>;
@@ -93,6 +98,7 @@ interface AppState {
 
   handleStepStatusChanged: (pipelineID: string, stepID: string, status: StepStatus) => void;
   handleStepOutput: (pipelineID: string, stepID: string, output: string) => void;
+  handleAgentStreamEvent: (pipelineID: string, stepID: string, event: AgentStreamUiEvent) => void;
   handleStepRetry: (
     pipelineID: string,
     stepID: string,
@@ -128,6 +134,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedStepID: null,
   stepStatuses: {},
   stepOutputs: {},
+  stepAgentFeeds: {},
   stepRetryRecords: {},
   stepRetryMaxAttempts: {},
   isExecuting: false,
@@ -299,6 +306,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       executionError: null,
       stepStatuses: {},
       stepOutputs: {},
+      stepAgentFeeds: {},
       stepRetryRecords: {},
       stepRetryMaxAttempts: {},
       showMonitor: true,
@@ -345,6 +353,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       stepOutputs: { ...s.stepOutputs, [stepID]: (s.stepOutputs[stepID] || '') + output },
     }));
+  },
+
+  handleAgentStreamEvent: (pipelineID, stepID, event) => {
+    set((s) => {
+      if (s.executingPipelineID !== pipelineID) return s;
+      const prev = s.stepAgentFeeds[stepID] ?? [];
+      return {
+        stepAgentFeeds: {
+          ...s.stepAgentFeeds,
+          [stepID]: applyAgentStreamEvent(prev, event),
+        },
+      };
+    });
   },
 
   handleStepRetry: (_pipelineID, stepID, retryRecords, _failedAttempt, maxAttempts) => {
@@ -423,11 +444,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!runs.length) return;
     const mergedStatuses: Record<string, StepStatus> = {};
     const mergedOutputs: Record<string, string> = {};
+    const mergedFeeds: Record<string, AgentFeedItem[]> = {};
     const mergedRetry: Record<string, RetryRecord[]> = {};
     const mergedMax: Record<string, number> = {};
     for (const r of runs) {
       Object.assign(mergedStatuses, r.stepStatuses);
       Object.assign(mergedOutputs, r.stepOutputs);
+      if (r.stepAgentFeeds) {
+        for (const [k, v] of Object.entries(r.stepAgentFeeds)) {
+          mergedFeeds[k] = v;
+        }
+      }
       Object.assign(mergedRetry, r.stepRetryRecords);
       Object.assign(mergedMax, r.stepRetryMaxAttempts);
     }
@@ -438,6 +465,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       executingPipelineID: pick.pipelineID,
       stepStatuses: mergedStatuses,
       stepOutputs: mergedOutputs,
+      stepAgentFeeds: mergedFeeds,
       stepRetryRecords: mergedRetry,
       stepRetryMaxAttempts: mergedMax,
       executionError: null,

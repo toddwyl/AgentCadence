@@ -17,6 +17,7 @@ import {
   initLiveRun,
   clearLiveRun,
   appendStepOutput,
+  appendAgentStreamEvent,
   setStepStatus,
   setStepRetry,
   getActiveRunSnapshots,
@@ -113,6 +114,13 @@ async function runPipeline(pipeline: Pipeline, ptyOpts?: { cols?: number; rows?:
         broadcast({
           type: 'step_output',
           payload: { pipelineID: pipeline.id, stepID, output },
+        });
+      },
+      (stepID, event) => {
+        appendAgentStreamEvent(pipeline.id, stepID, event);
+        broadcast({
+          type: 'agent_stream_event',
+          payload: { pipelineID: pipeline.id, stepID, event },
         });
       },
       (stepID, retryRecords, failedAttempt, maxAttempts) => {

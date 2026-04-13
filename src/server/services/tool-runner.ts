@@ -3,9 +3,11 @@ import type {
   CLIProfile,
   ToolType,
   RetryRecord,
+  AgentStreamUiEvent,
 } from '../../shared/types.js';
 import { buildToolArguments, normalizeCursorModelForCLI, profileConfigForTool } from '../../shared/types.js';
-import { CLIRunner, type CLIResult } from './cli-runner.js';
+import { CLIRunner } from './cli-runner.js';
+import { createCliStreamPresenter } from './cli-output/factory.js';
 
 export interface StepResult {
   stepID: string;
@@ -42,7 +44,8 @@ export interface ToolRunnerInterface {
     profile: CLIProfile,
     shouldTerminate?: () => boolean,
     onOutputChunk?: (chunk: string) => void,
-    ptyDims?: { cols: number; rows: number }
+    ptyDims?: { cols: number; rows: number },
+    onAgentStreamEvent?: (e: AgentStreamUiEvent) => void
   ): Promise<StepResult>;
 }
 
@@ -50,7 +53,7 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
   const cli = new CLIRunner();
   return {
     toolType: tool,
-    async execute(step, workingDirectory, profile, shouldTerminate, onOutputChunk, ptyDims) {
+    async execute(step, workingDirectory, profile, shouldTerminate, onOutputChunk, ptyDims, onAgentStreamEvent) {
       const config = profileConfigForTool(profile, tool);
       const args = buildToolArguments(
         config,
@@ -59,9 +62,9 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
         workingDirectory
       );
 
-      // Use PTY for agent tools (no custom command) so output streams in
-      // real time with full terminal rendering (colors, progress, etc.)
       const usePTY = !step.command;
+
+      const streamWrap = createCliStreamPresenter(onOutputChunk, { tool, args }, onAgentStreamEvent);
 
       const result = usePTY
         ? await cli.runPTY({
@@ -71,7 +74,7 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
             stdinData: config.promptMode === 'stdin' ? step.prompt : undefined,
             timeout: profile.stepTimeout || 1800,
             shouldTerminate,
-            onOutputChunk,
+            onOutputChunk: streamWrap ? streamWrap.onChunk : onOutputChunk,
             cols: ptyDims?.cols,
             rows: ptyDims?.rows,
           })
@@ -82,13 +85,15 @@ function makeToolRunner(tool: ToolType): ToolRunnerInterface {
             stdinData: config.promptMode === 'stdin' ? step.prompt : undefined,
             timeout: profile.stepTimeout || 1800,
             shouldTerminate,
-            onOutputChunk,
+            onOutputChunk: streamWrap ? streamWrap.onChunk : onOutputChunk,
           });
+
+      const stdout = streamWrap ? streamWrap.finish(result.stdout) : result.stdout;
 
       return {
         stepID: step.id,
         exitCode: result.exitCode,
-        output: result.stdout,
+        output: stdout,
         error: result.stderr,
         cancelledByUser: false,
       };

@@ -23,7 +23,11 @@
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "ghostty-web": "^0.4.0",
+    "highlight.js": "^11.11.1",
     "node-pty": "^1.1.0",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"
   },

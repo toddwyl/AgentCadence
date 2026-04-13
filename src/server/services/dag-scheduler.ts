@@ -5,6 +5,7 @@ import type {
   StepStatus,
   CLIProfile,
   RetryRecord,
+  AgentStreamUiEvent,
 } from '../../shared/types.js';
 import { resolveAllSteps, stepHasCustomCommand, interpolatePromptVariables } from '../../shared/types.js';
 import type { StepResult } from './tool-runner.js';
@@ -134,7 +135,8 @@ async function executeStep(
   profile: CLIProfile,
   executionControl: ExecutionControl | null,
   onOutputChunk: (chunk: string) => void,
-  globalVariables: Record<string, string>
+  globalVariables: Record<string, string>,
+  onAgentStreamEvent?: (e: AgentStreamUiEvent) => void
 ): Promise<StepResult> {
   const resolved = resolveStepWithVariables(step, globalVariables);
   const shouldTerminate = executionControl
@@ -148,12 +150,24 @@ async function executeStep(
   try {
     if (stepHasCustomCommand(resolved)) {
       return await new CommandRunner().execute(
-        resolved, workingDirectory, profile, shouldTerminate, onOutputChunk, ptyDims
+        resolved,
+        workingDirectory,
+        profile,
+        shouldTerminate,
+        onOutputChunk,
+        ptyDims,
+        onAgentStreamEvent
       );
     }
     const runner = getRunnerForTool(resolved.tool);
     return await runner.execute(
-      resolved, workingDirectory, profile, shouldTerminate, onOutputChunk, ptyDims
+      resolved,
+      workingDirectory,
+      profile,
+      shouldTerminate,
+      onOutputChunk,
+      ptyDims,
+      onAgentStreamEvent
     );
   } catch (err) {
     if (err instanceof CLIError && err.code === 'CANCELLED') {
@@ -197,7 +211,8 @@ async function executeStepWithRetry(
     failedAttempt: number,
     maxAttempts: number
   ) => void,
-  globalVariables: Record<string, string> = {}
+  globalVariables: Record<string, string> = {},
+  onAgentStreamEvent?: (e: AgentStreamUiEvent) => void
 ): Promise<StepResult> {
   const failureMode = step.failureMode ?? 'retry';
   const maxAttempts = effectiveMaxAttempts(step);
@@ -213,7 +228,8 @@ async function executeStepWithRetry(
       profile,
       executionControl,
       onOutputChunk,
-      globalVariables
+      globalVariables,
+      onAgentStreamEvent
     );
 
     if (result.exitCode === 0 || result.cancelledByUser) {
@@ -279,6 +295,7 @@ export class DAGScheduler {
     executionControl: ExecutionControl | null = null,
     onStepStatusChanged: (stepID: string, status: StepStatus) => void,
     onStepOutput: (stepID: string, output: string) => void,
+    onAgentStreamEvent?: (stepID: string, event: AgentStreamUiEvent) => void,
     onRetryProgress?: (
       stepID: string,
       retryRecords: RetryRecord[],
@@ -366,7 +383,10 @@ export class DAGScheduler {
             executionControl,
             (chunk) => onStepOutput(resolved.step.id, chunk),
             onRetryProgress,
-            globalVariables
+            globalVariables,
+            onAgentStreamEvent
+              ? (event) => onAgentStreamEvent(resolved.step.id, event)
+              : undefined
           );
         })
       );

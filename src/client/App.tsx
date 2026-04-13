@@ -1,5 +1,11 @@
 import { useEffect, useCallback } from 'react';
-import type { WSMessage, RetryRecord, ActiveExecutionRunPayload, StepStatus } from '@shared/types';
+import type {
+  WSMessage,
+  RetryRecord,
+  ActiveExecutionRunPayload,
+  StepStatus,
+  AgentStreamUiEvent,
+} from '@shared/types';
 import { useAppStore } from './store/app-store';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Sidebar } from './components/layout/Sidebar';
@@ -59,6 +65,13 @@ export default function App() {
         break;
       case 'execution_state_snapshot':
         s.hydrateExecutionSnapshot((p.runs ?? []) as ActiveExecutionRunPayload[]);
+        break;
+      case 'agent_stream_event':
+        s.handleAgentStreamEvent(
+          p.pipelineID as string,
+          p.stepID as string,
+          p.event as AgentStreamUiEvent
+        );
         break;
     }
   }, []);
