@@ -3,7 +3,7 @@
  * Set AGENTCADENCE_CURSOR_RAW_STREAM_JSON=1 to pass through raw bytes.
  */
 
-import type { AgentStreamUiEvent } from '../../../shared/types.js';
+import type { AgentStreamUiEvent, AgentTodoSnapshotItem } from '../../../shared/types.js';
 import { CYN, DIM, GRN, RST, YLW } from './ansi.js';
 import { JsonlLineBuffer } from './jsonl-line-buffer.js';
 import type { CliStreamPresenterHandle, TerminalEmit } from './types.js';
@@ -123,6 +123,117 @@ function toolCallHintKey(toolName: string, detail: string | undefined): string {
   return `${toolName}\0${detail ?? ''}`;
 }
 
+function sanitizeToolResultPreview(raw: string, maxLen: number): string {
+  let out = '';
+  for (const ch of raw) {
+    const c = ch.charCodeAt(0);
+    if (c === 9 || c === 10) out += ch;
+    else if (c < 32 || c === 127) continue;
+    else out += ch;
+  }
+  return out.length <= maxLen ? out : out.slice(0, maxLen);
+}
+
+/** Cursor `tool_call` completed payload → short preview + ok flag for the activity feed. */
+function extractToolResultPreview(obj: Record<string, unknown>): { preview?: string; ok?: boolean } {
+  const nonEmpty = (v: unknown): string | undefined =>
+    typeof v === 'string' && v.trim().length > 0 ? v : undefined;
+
+  let raw: string | undefined =
+    nonEmpty(obj.result) ?? nonEmpty(obj.output) ?? nonEmpty(obj.message);
+
+  const tc = obj.tool_call;
+  if (raw === undefined && tc && typeof tc === 'object') {
+    for (const val of Object.values(tc as Record<string, unknown>)) {
+      if (!val || typeof val !== 'object') continue;
+      const o = val as Record<string, unknown>;
+      const hit =
+        nonEmpty(o.result) ?? nonEmpty(o.output) ?? nonEmpty(o.content) ?? nonEmpty(o.text);
+      if (hit !== undefined) {
+        raw = hit;
+        break;
+      }
+    }
+  }
+
+  const sanitized = raw !== undefined ? sanitizeToolResultPreview(raw, 600) : '';
+  const out: { preview?: string; ok?: boolean } = {};
+  if (sanitized.length > 0) out.preview = sanitized;
+  if (obj.is_error === true || obj.success === false) out.ok = false;
+  return out;
+}
+
+function canonicalToolNameForMatch(name: string): string {
+  return name
+    .replace(/-/g, '_')
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase();
+}
+
+function normalizeTodoStatus(raw: unknown): AgentTodoSnapshotItem['status'] {
+  const x = String(raw ?? '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '_');
+  if (x === 'in_progress' || x === 'inprogress' || x === 'active') return 'in_progress';
+  if (x === 'completed' || x === 'complete' || x === 'done') return 'completed';
+  return 'pending';
+}
+
+function findTodosArrayInToolCall(tcRec: Record<string, unknown>): unknown[] | null {
+  const tryArgsTodos = (val: unknown): unknown[] | null => {
+    if (!val || typeof val !== 'object') return null;
+    const payload = val as Record<string, unknown>;
+    const args = payload.args;
+    if (args && typeof args === 'object') {
+      const todos = (args as Record<string, unknown>).todos;
+      if (Array.isArray(todos) && todos.length > 0) return todos;
+    }
+    return null;
+  };
+
+  for (const [key, val] of Object.entries(tcRec)) {
+    if (key === 'todoWriteToolCall' || key.endsWith('TodoWrite')) {
+      const found = tryArgsTodos(val);
+      if (found) return found;
+    }
+  }
+  for (const val of Object.values(tcRec)) {
+    const found = tryArgsTodos(val);
+    if (found) return found;
+  }
+  return null;
+}
+
+function parseTodoSnapshotFromToolCall(
+  obj: Record<string, unknown>,
+  toolName: string
+): AgentTodoSnapshotItem[] | null {
+  if (canonicalToolNameForMatch(toolName) !== 'todo_write') return null;
+  const tc = obj.tool_call;
+  if (!tc || typeof tc !== 'object') return null;
+  const arr = findTodosArrayInToolCall(tc as Record<string, unknown>);
+  if (!arr || arr.length === 0) return null;
+
+  const items: AgentTodoSnapshotItem[] = arr.map((item, idx) => {
+    if (item && typeof item === 'object') {
+      const o = item as Record<string, unknown>;
+      return {
+        id: String(o.id ?? idx),
+        content: String(o.content ?? o.task ?? o.title ?? ''),
+        status: normalizeTodoStatus(o.status),
+      };
+    }
+    return {
+      id: String(idx),
+      content: String(item ?? ''),
+      status: 'pending' as const,
+    };
+  });
+  return items.length > 0 ? items : null;
+}
+
 export class CursorStreamJsonPrettifier {
   private lines = new JsonlLineBuffer();
   private lastAssistantChunk = '';
@@ -228,7 +339,7 @@ export class CursorStreamJsonPrettifier {
       if (sub === 'started' && parsed.callId) {
         this.toolCallIdHints.set(hintKey, parsed.callId);
       }
-      this.ui({
+      const toolPayload: Extract<AgentStreamUiEvent, { kind: 'tool' }> = {
         kind: 'tool',
         phase,
         subtype: sub,
@@ -236,7 +347,15 @@ export class CursorStreamJsonPrettifier {
         toolName: parsed.toolName,
         detail: parsed.detail,
         callId,
-      });
+      };
+      if (phase === 'completed') {
+        const extra = extractToolResultPreview(obj);
+        if (extra.preview !== undefined) toolPayload.resultPreview = extra.preview;
+        if (extra.ok === false) toolPayload.ok = false;
+      }
+      this.ui(toolPayload);
+      const snapshot = parseTodoSnapshotFromToolCall(obj, parsed.toolName);
+      if (snapshot) this.ui({ kind: 'todo_snapshot', items: snapshot });
       if (sub === 'started') {
         emit(`${CYN}▸ ${parsed.summary}${RST}\n`);
         return;
