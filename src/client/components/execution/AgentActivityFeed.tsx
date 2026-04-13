@@ -1,7 +1,26 @@
 import { CheckCircle2, ChevronDown, Circle, Loader2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentFeedItem } from '@shared/types';
 import { AgentMarkdownBody } from './AgentMarkdownBody';
+
+/** 合并连续且 model/cwd 相同的会话块（兼容旧快照里重复的 session_init） */
+function dedupeConsecutiveSessionInits(items: AgentFeedItem[]): AgentFeedItem[] {
+  if (items.length < 2) return items;
+  const out: AgentFeedItem[] = [];
+  for (const it of items) {
+    const prev = out[out.length - 1];
+    if (
+      it.kind === 'init' &&
+      prev?.kind === 'init' &&
+      prev.model === it.model &&
+      prev.cwd === it.cwd
+    ) {
+      continue;
+    }
+    out.push(it);
+  }
+  return out;
+}
 
 export type AgentActivityFeedLabels = {
   thinking: string;
@@ -66,12 +85,14 @@ export function AgentActivityFeed({
   const [openTools, setOpenTools] = useState<Record<number, boolean>>({});
   const [openTodos, setOpenTodos] = useState<Record<number, boolean>>({});
 
+  const displayItems = useMemo(() => dedupeConsecutiveSessionInits(items), [items]);
+
   useEffect(() => {
     if (!isLive || !bottomRef.current) return;
     bottomRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [isLive, items]);
+  }, [isLive, displayItems]);
 
-  if (items.length === 0) {
+  if (displayItems.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center px-6 py-12 text-center">
         <p className="text-sm theme-text-muted max-w-sm">{noActivityText}</p>
@@ -79,11 +100,14 @@ export function AgentActivityFeed({
     );
   }
 
-  const lastIdx = items.length - 1;
+  let lastThinkingIdx = -1;
+  for (let j = 0; j < displayItems.length; j++) {
+    if (displayItems[j].kind === 'thinking') lastThinkingIdx = j;
+  }
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
-      {items.map((item, i) => {
+      {displayItems.map((item, i) => {
         switch (item.kind) {
           case 'init':
             return (
@@ -106,7 +130,8 @@ export function AgentActivityFeed({
           case 'thinking': {
             const substantial = item.text.length > 120;
             const open = openThinking[i] ?? !substantial;
-            const isStreaming = Boolean(isLive && i === lastIdx);
+            /** 进行中：最后一条思考块在 live 时转圈（避免会话重复 init 占 lastIdx 时不转） */
+            const isThinkingInProgress = Boolean(isLive && i === lastThinkingIdx);
             const preview = firstLinePreview(item.text, 96);
             return (
               <div
@@ -119,8 +144,11 @@ export function AgentActivityFeed({
                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] font-medium theme-text-muted theme-hover"
                   onClick={() => setOpenThinking((s) => ({ ...s, [i]: !open }))}
                 >
-                  {isStreaming ? (
-                    <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin opacity-80" aria-hidden />
+                  {isThinkingInProgress ? (
+                    <Loader2
+                      className="w-3.5 h-3.5 shrink-0 animate-spin opacity-90 text-accent-primary"
+                      aria-hidden
+                    />
                   ) : null}
                   <span className="shrink-0">{labels.thinking}</span>
                   {!open && preview ? (
@@ -136,7 +164,13 @@ export function AgentActivityFeed({
                   />
                 </button>
                 {open ? (
-                  <div className="px-3 pb-3 text-[11px] leading-relaxed theme-text-secondary border-t border-[var(--color-border)] border-opacity-50 pt-2">
+                  <div className="px-3 pb-3 text-[11px] leading-relaxed theme-text-secondary border-t border-[var(--color-border)] border-opacity-50 pt-2 relative">
+                    {isThinkingInProgress ? (
+                      <div className="flex items-center gap-2 mb-2 text-[10px] theme-text-muted">
+                        <Loader2 className="w-3 h-3 animate-spin shrink-0 text-accent-primary" aria-hidden />
+                        <span>{labels.toolPhaseRunning}</span>
+                      </div>
+                    ) : null}
                     <AgentMarkdownBody variant="dim" text={item.text} />
                   </div>
                 ) : null}
@@ -165,6 +199,8 @@ export function AgentActivityFeed({
               (item.toolName && item.summary !== item.toolName ? item.summary : undefined);
             const expanded = openTools[i] ?? false;
             const oneLine = toolCollapsedSummary(item);
+            const toolRunning = item.phase === 'started' || item.phase === 'update';
+            const showToolSpinner = Boolean(isLive && toolRunning);
             return (
               <div
                 key={`tool-${i}`}
@@ -187,6 +223,17 @@ export function AgentActivityFeed({
                   <span className="flex-1 min-w-0 text-[12px] font-mono theme-text-secondary truncate">
                     {expanded ? primary : oneLine}
                   </span>
+                  {showToolSpinner ? (
+                    <Loader2
+                      className="w-3.5 h-3.5 shrink-0 animate-spin text-accent-primary opacity-90"
+                      aria-hidden
+                    />
+                  ) : item.phase === 'completed' ? (
+                    <CheckCircle2
+                      className="w-3.5 h-3.5 shrink-0 text-emerald-500/90"
+                      aria-hidden
+                    />
+                  ) : null}
                   <span
                     className="text-[9px] px-1.5 py-0.5 rounded shrink-0 theme-bg-2 theme-text-muted"
                     style={{ border: '1px solid var(--color-border)' }}

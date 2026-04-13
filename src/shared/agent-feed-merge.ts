@@ -97,9 +97,17 @@ export function applyAgentStreamEvent(
   const next = [...feed];
 
   switch (event.kind) {
-    case 'session_init':
+    case 'session_init': {
+      const last = next[next.length - 1];
+      if (last?.kind === 'init') {
+        if (event.model && event.model.length > 0) last.model = event.model;
+        if (event.cwd && event.cwd.length > 0) last.cwd = event.cwd;
+        trimFeed(next);
+        break;
+      }
       pushItem(next, { kind: 'init', model: event.model, cwd: event.cwd });
       break;
+    }
     case 'assistant_delta':
       if (event.text) mergeTail(next, 'assistant', event.text);
       break;
