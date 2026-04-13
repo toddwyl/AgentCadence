@@ -137,7 +137,7 @@ export function AgentActivityFeed({
                 </button>
                 {open ? (
                   <div className="px-3 pb-3 text-[11px] leading-relaxed theme-text-secondary border-t border-[var(--color-border)] border-opacity-50 pt-2">
-                    <pre className="whitespace-pre-wrap font-sans m-0">{item.text}</pre>
+                    <AgentMarkdownBody variant="dim" text={item.text} />
                   </div>
                 ) : null}
               </div>
