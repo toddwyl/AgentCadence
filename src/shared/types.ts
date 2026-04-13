@@ -331,8 +331,8 @@ export const DEFAULT_CLI_PROFILE: CLIProfile = {
   cursor: {
     executable: 'cursor-agent',
     // Headless: --force applies file edits without interactive confirm (otherwise agent may block in PTY).
-    // stream-json + --stream-partial-output: NDJSON events + finer text chunks (see Cursor output-format doc).
-    baseArgs: ['--trust', '--force', '--output-format', 'stream-json', '--stream-partial-output'],
+    // stream-json: NDJSON events; server prettifies for the web terminal (omit --stream-partial-output to avoid duplicate fragments).
+    baseArgs: ['--trust', '--force', '--output-format', 'stream-json'],
     promptFlag: '-p',
     modelFlag: '--model',
     promptMode: 'inline',
@@ -340,20 +340,29 @@ export const DEFAULT_CLI_PROFILE: CLIProfile = {
   },
   codex: {
     executable: 'codex',
-    baseArgs: ['exec', '--sandbox', 'workspace-write'],
+    // --json: JSONL on stdout for services/cli-output prettifier (omit if using an older codex CLI).
+    baseArgs: ['exec', '--json', '--sandbox', 'workspace-write'],
     modelFlag: '--model',
     promptMode: 'argument',
   },
   claude: {
     executable: 'claude',
-    baseArgs: ['--print', '--permission-mode', 'bypassPermissions', '--add-dir', '.'],
+    baseArgs: [
+      '--print',
+      '--output-format',
+      'stream-json',
+      '--permission-mode',
+      'bypassPermissions',
+      '--add-dir',
+      '.',
+    ],
     promptFlag: '-p',
     modelFlag: '--model',
     promptMode: 'inline',
   },
   planner: {
     executable: 'cursor-agent',
-    baseArgs: ['--trust', '--force', '--output-format', 'stream-json', '--stream-partial-output'],
+    baseArgs: ['--trust', '--force', '--output-format', 'stream-json'],
     promptFlag: '-p',
     modelFlag: '--model',
     promptMode: 'inline',
@@ -436,11 +445,67 @@ export const DEFAULT_NOTIFICATION_SETTINGS: ExecutionNotificationSettings = {
 // MARK: - WebSocket Event Types
 
 /** Snapshot of one in-flight pipeline run (server buffer + reconnect hydrate). */
+
+/** Row in a todo list snapshot from the agent stream or merged feed block. */
+export type AgentTodoSnapshotItem = {
+  id: string;
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+};
+
+/** Structured agent JSONL → IM-style timeline (OpenClaw-like). */
+export type AgentFeedItem =
+  | { kind: 'init'; model?: string; cwd?: string }
+  | { kind: 'user_turn' }
+  | { kind: 'thinking'; text: string }
+  | { kind: 'assistant'; text: string }
+  | {
+      kind: 'tool';
+      phase: 'started' | 'completed' | 'update';
+      /** One-line description; also used as merge key when callId is absent */
+      summary: string;
+      /** Canonical tool id from the CLI, e.g. read_file, write */
+      toolName?: string;
+      /** Path, command preview, or other primary argument */
+      detail?: string;
+      /** Stable id from the agent stream when present (preferred merge key) */
+      callId?: string;
+      resultPreview?: string;
+      ok?: boolean;
+    }
+  | { kind: 'result'; ok: boolean; durationMs?: number | null }
+  | { kind: 'todo'; items: AgentTodoSnapshotItem[] };
+
+/** Single parsed JSONL-derived event before merging into {@link AgentFeedItem} blocks. */
+export type AgentStreamUiEvent =
+  | { kind: 'session_init'; model?: string; cwd?: string }
+  | { kind: 'assistant_delta'; text: string }
+  | { kind: 'thinking_delta'; text: string }
+  | {
+      kind: 'tool';
+      phase: 'started' | 'completed' | 'update';
+      summary: string;
+      subtype?: string;
+      toolName?: string;
+      detail?: string;
+      callId?: string;
+      resultPreview?: string;
+      ok?: boolean;
+    }
+  | { kind: 'turn_result'; ok: boolean; durationMs?: number | null }
+  | { kind: 'user_turn' }
+  | { kind: 'todo_snapshot'; items: AgentTodoSnapshotItem[] };
+
+/** @deprecated Use {@link AgentStreamUiEvent} */
+export type CursorStreamUiEvent = AgentStreamUiEvent;
+
 export interface ActiveExecutionRunPayload {
   pipelineID: string;
   runID: string;
   stepStatuses: Record<string, StepStatus>;
   stepOutputs: Record<string, string>;
+  /** Merged agent/tool/thinking blocks for the live “conversation” pane */
+  stepAgentFeeds?: Record<string, AgentFeedItem[]>;
   stepRetryRecords: Record<string, RetryRecord[]>;
   stepRetryMaxAttempts: Record<string, number>;
 }
@@ -458,7 +523,8 @@ export type WSEventType =
   | 'planning_complete'
   | 'planning_error'
   | 'execution_error'
-  | 'execution_state_snapshot';
+  | 'execution_state_snapshot'
+  | 'agent_stream_event';
 
 export interface WSMessage {
   type: WSEventType;
