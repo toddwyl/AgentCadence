@@ -1,81 +1,57 @@
 <p align="center">
-  <strong>AgentCadence</strong><br/>
-  <em>Universal CLI orchestration workbench for the web — run Cursor, Claude Code, and Codex in pipelines with DAG scheduling, live monitoring, and AI-assisted pipeline generation.</em>
+  <img src="./src/client/assets/brand/favicon.svg" alt="AgentCadence logo" width="72" height="72" />
+</p>
+
+<h1 align="center">AgentCadence</h1>
+
+<p align="center">
+  <a href="./README.md">English</a> · <a href="./README.zh-CN.md">中文</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/toddwyl/AgentCadence/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/node/v/vite.svg" alt="Node.js 18+" /></a>
-  <a href="https://github.com/toddwyl/AgentCadence"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome" /></a>
+  A web workbench for orchestrating Cursor, Claude Code, and Codex in multi-step pipelines.
 </p>
-
----
-
-## Table of contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Preview](#preview)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Running](#running)
-- [Configuration](#configuration)
-- [Using AgentCadence](#using-agentcadence)
-- [Automation & tests](#automation--tests)
-- [Development](#development)
-- [Related projects](#related-projects)
-- [Credits](#credits)
-- [License](#license)
-
----
-
-## Overview
-
-**AgentCadence** is a TypeScript web application that lets you **design multi-stage pipelines**, **execute agent CLIs** (e.g. `cursor-agent`, `claude`, `codex`) from the server, and **watch runs in real time** with history, retries, and per-step output — similar in spirit to desktop workflow tools, but in the browser.
-
-Typical use cases:
-
-- Orchestrate coding / review / verify steps across **parallel** and **sequential** stages.
-- Centralize **working directory**, **global variables** (`{{name}}` substitution), and **templates** (Markdown import/export).
-- Use **AI Pipeline Generator** to draft a pipeline from a natural-language task (planner uses your configured CLI).
-- Inspect **Data Insights** over past runs (duration, retries, model usage where applicable).
-
----
-
-## Features
-
-| Area | What you get |
-|------|----------------|
-| **Pipelines** | Stages with **parallel** or **sequential** execution; steps with tool, model, prompt, optional custom shell command, retry policy. |
-| **Execution** | Server-side DAG scheduler; WebSocket updates; **Run Monitor** with **Running** + **History** tabs; step output persisted on the server. |
-| **CLI** | Per-tool executable and flags in **Settings**; **Detect environment** to resolve `cursor-agent`, `codex`, `claude` on the host machine. |
-| **Templates** | Save/load pipelines as Markdown; import/export for reuse. |
-| **i18n** | English / 中文 UI. |
-| **Themes** | Dark / light. |
-
----
-
-## Preview
 
 <p align="center">
-  <img src="docs/demo.gif" alt="AgentCadence: pipeline editor, orchestration view, run monitor, settings, templates, insights, AI pipeline generator" width="960" />
+  Design staged workflows, run agent CLIs on your machine, watch live transcript-style activity, and keep reusable templates, automation triggers, and run history in one place.
 </p>
 
-Screen recording in **English** and **dark** theme: pipeline editor → **Orchestration View** → **Run Monitor** → **Settings** → **Templates** → **Insights** → **AI Generate**.
+## Why AgentCadence
 
-To regenerate `docs/demo.gif`, start the app (`npm start`, default `http://localhost:3712`), install [`ffmpeg`](https://ffmpeg.org/) on your machine, then run `npm run capture:demo-gif` (or `node scripts/capture-readme-demo-gif.mjs` with optional `BASE_URL`).
+AgentCadence is built for the gap between a single agent chat and a full CI system.
+It lets you compose real local CLI agents into a repeatable pipeline, run them with dependencies and retries, and inspect what happened step by step from the browser.
 
----
+Typical flows include:
 
-## Requirements
+- implement → review → verify
+- parallel feature branches in one stage, then converge on review
+- scheduled or webhook-triggered runs against an existing pipeline
+- reusable pipeline templates for common coding and release tasks
 
-- **Node.js** 18+
-- **Network access** from the machine running the server (for agent CLIs that call cloud APIs).
-- **Locally installed CLIs** as needed: `cursor-agent`, `claude`, OpenAI **Codex** CLI, etc. Paths are resolved on the **server host** (the browser does not run the agents).
+## What you get
 
----
+| Area | Capabilities |
+| --- | --- |
+| Pipeline builder | Multi-stage pipelines with sequential or parallel execution, retries, custom commands, and per-step tool/model configuration |
+| Supported tools | Cursor, Claude Code, and Codex profiles, with local executable detection and configurable base arguments |
+| Live execution | Streaming transcript view, raw logs, run history, per-step status, and persisted outputs for new runs |
+| Automation | Schedules, webhooks, and post-run callbacks managed from Settings |
+| Workspace features | Templates, insights, working directory selection, and global variables for prompt/command reuse |
+| Runtime | React + Vite client, Express + WebSocket server, `node-pty` streaming for terminal-backed steps |
 
-## Installation
+> [!IMPORTANT]
+> AgentCadence runs agent CLIs on the machine hosting the Node server, not in the browser.
+> Your local environment, credentials, and CLI installs must already be working there.
+
+## Quick start
+
+### Requirements
+
+- Node.js 18+
+- npm
+- Installed agent CLIs for the tools you want to use, such as `cursor-agent`, `claude`, or `codex`
+
+### Install
 
 ```bash
 git clone https://github.com/toddwyl/AgentCadence.git
@@ -83,124 +59,122 @@ cd AgentCadence
 npm install
 ```
 
-Production bundle (recommended for daily use):
-
-```bash
-npm run build
-```
-
----
-
-## Running
-
-### Production (single port — API + static UI)
-
-```bash
-npm start
-# default: http://localhost:3712
-```
-
-Override port:
-
-```bash
-PORT=8080 npm start
-```
-
-### Development (Vite + API on separate ports)
+### Run in development
 
 ```bash
 npm run dev
 ```
 
-- Client (Vite): **`http://localhost:5173`** — `/api` and `/ws` are proxied to the API on **`3712`** (watch the `dev:server` line for `running at http://localhost:3712`).
-- Pipeline data and run history are stored on the **server host** (see store path in code); **History** stays empty until you have **Run** at least once.
+This starts:
 
-Use the **5173** URL in the browser (not 3712 alone — that serves API + static build without Vite HMR).
+- the API server on `PORT` or `3712`
+- the Vite client on `5173`, proxying API and WebSocket traffic to the server
 
----
+If `3712` is already in use, the dev script fails fast instead of silently attaching to the wrong process.
 
-## Configuration
+### Run the production build
 
-### Environment variables
+```bash
+npm run build
+npm start
+```
 
-| Variable | Description |
-|----------|-------------|
-| `PORT` | HTTP port for `npm start` (default **3712**). |
-| `AGENTCADENCE_URL` | Base URL for smoke/E2E scripts (optional). |
+Default URL:
 
-### CLI profiles (in the app)
+```text
+http://localhost:3712
+```
+
+You can override the server port with `PORT`:
+
+```bash
+PORT=3812 npm start
+```
+
+## First-run setup
 
 1. Open **Settings**.
-2. Use **Detect environment** to fill paths for **cursor-agent**, **codex**, **claude** (runs on the server machine).
-3. Configure **Planner model** and optional **custom planning policy** for **AI Generate**.
+2. Configure your tool profiles for Cursor, Claude, and Codex.
+3. Set a working directory for the repository or workspace you want the agents to operate on.
+4. Create a pipeline or start from a template.
+5. Run it and inspect the live activity stream.
 
-### Folder picker
+AgentCadence stores local app data under:
 
-**Browse…** uses the OS folder dialog on the **same machine as the Node server**. Remote access over SSH without X11 forwarding will not show a native picker — type paths manually in that case.
-
----
-
-## Using AgentCadence
-
-1. **Create a pipeline** (sidebar) or **use a template** / **AI Generate**.
-2. Set **Working directory** in the header (project root for CLI runs).
-3. Add **stages** and **steps**; set **tool**, **model**, **prompt** (or a **custom command** for shell-only steps).
-4. Optional: **Global variables** — use `{{var}}` in prompts/commands.
-5. **Run** — watch **Run Monitor** for live progress; switch to **History** for past runs.
-6. **Orchestration View** for a flowchart-style overview.
-7. **Save MD** / **Templates** / **Insights** as needed.
-
----
-
-## Automation & tests
-
-With the server running (`npm start` or `npm run dev`):
-
-```bash
-npm run test:smoke
+```text
+~/.agentcadence
 ```
 
-Optional end-to-end scripts (see `scripts/`):
+That includes pipelines, templates, schedules, webhook definitions, CLI profile data, and other persisted runtime state.
 
-```bash
-npm run test:e2e-run      # shell-only pipeline (fast, no LLM)
-npm run test:e2e-cursor   # real cursor-agent step (requires CLI + network)
-```
+## How it works
 
-Smoke/E2E scripts accept `AGENTCADENCE_URL` (optional; default `http://localhost:3712`). Running them may write Markdown summaries under `tests/AgentCadenceTest/` on your machine; that folder is not tracked in git.
+Each pipeline is composed of stages, and each stage contains one or more steps.
+Stages can run sequentially, while steps inside a stage can run sequentially or in parallel depending on the stage mode.
 
----
+Each step can:
+
+- use a selected tool and model
+- provide a natural-language prompt
+- optionally override execution with a custom shell command
+- retry on failure based on configured policy
+- emit live transcript events and raw terminal output
+
+## Project highlights
+
+### Transcript-first monitoring
+
+The execution monitor is designed around a readable activity stream rather than a wall of tool events.
+High-signal narration stays prominent, while lower-value command activity and file edits can be grouped or expanded on demand.
+
+### Built-in automation surfaces
+
+Automation lives inside Settings and includes:
+
+- pipeline schedules
+- webhook-triggered runs
+- callback and post-action bindings
+
+This keeps one-off runs and recurring triggers in the same product surface.
+
+### Template and insight workflows
+
+You can save pipelines as templates, import or export template markdown, and inspect usage and run history from the built-in insights view.
 
 ## Development
 
+Useful commands:
+
 ```bash
-npm run dev          # concurrent client + server
-npm run build        # production client + server compile
-npm run lint         # eslint (if configured)
+npm run dev
+npm run build
+npm run test
+npm run test:harness
 ```
 
-Stack: **React**, **Vite**, **Express**, **WebSocket**, **TypeScript** shared types under `src/shared/`.
+> [!IMPORTANT]
+> The required test gate for this repository is `bash scripts/harness.sh`.
+> A change is not considered verified until that script passes.
 
----
+The harness covers:
 
-## Related projects
+- client and server production build
+- server startup on a free port
+- `node-pty` spawn-helper validation
+- Playwright streaming checks for both shell-command steps and the default Cursor tool execution path
 
-- **[AgentCrew](https://github.com/qingni/AgentCrew)** — native macOS pipeline orchestration (conceptual predecessor).
+## Repository layout
 
----
+```text
+src/client        React UI
+src/server        Express routes and execution services
+src/shared        Shared types and merge logic
+scripts           Harness, E2E helpers, and developer utilities
+docs              Demo assets and docs
+```
 
-## Credits
+## Notes
 
-**AgentCadence** is inspired by [AgentCrew](https://github.com/qingni/AgentCrew). Part of the logic is based on their implementation and has been rewritten in TypeScript for this project.
-
----
-
-## License
-
-[MIT](LICENSE)
-
----
-
-<p align="center">
-  <sub>AgentCadence · <a href="https://github.com/toddwyl/AgentCadence">github.com/toddwyl/AgentCadence</a></sub>
-</p>
+- New detailed history playback is available for runs created after the recent execution-history persistence updates.
+- The browser UI is just the control plane. All CLI execution, environment detection, and local filesystem access happen on the server host.
+- If a CLI works in your terminal but not in AgentCadence, check the corresponding profile in Settings first.
