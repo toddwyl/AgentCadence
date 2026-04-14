@@ -27,8 +27,6 @@ The orchestration workbench is where you compose pipelines: multiple stages, par
   />
 </p>
 
-<sub>GitHub’s README viewer may proxy or downscale images; “Save image as” from the page can be a small (~40KB) preview. For the full PNG (~283KB), open the [file in the repo](https://github.com/toddwyl/AgentCadence/blob/main/docs/images/workbench-pipeline-editor.png) and use **Raw**, or use the copy at `docs/images/workbench-pipeline-editor.png` after `git clone` / `git pull`.</sub>
-
 ## Why AgentCadence
 
 AgentCadence is built for the gap between a single agent chat and a full CI system.

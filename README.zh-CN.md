@@ -27,8 +27,6 @@
   />
 </p>
 
-<sub>GitHub 在 README 里展示的图片可能经代理/压缩；在网页上「图片另存为」有时会得到约 40KB 的预览图。完整 PNG（约 283KB）请打开仓库里的 [该文件](https://github.com/toddwyl/AgentCadence/blob/main/docs/images/workbench-pipeline-editor.png) 点 **Raw** 下载，或使用 `git clone` / `git pull` 后的本地路径 `docs/images/workbench-pipeline-editor.png`。</sub>
-
 ## 为什么是 AgentCadence
 
 AgentCadence 解决的是“单个 agent 对话”和“完整 CI 系统”之间的空白地带。
