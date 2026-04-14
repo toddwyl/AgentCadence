@@ -21,8 +21,13 @@
 The orchestration workbench is where you compose pipelines: multiple stages, parallel or sequential steps inside a stage, per-step tool and prompt configuration, and one-click runs while agents execute on the host machine.
 
 <p align="center">
-  <img src="./docs/images/workbench-pipeline-editor.png" alt="AgentCadence orchestration workbench with a sample pipeline: Coding stage in parallel and Review stage sequential" width="920" />
+  <img
+    src="https://raw.githubusercontent.com/toddwyl/AgentCadence/main/docs/images/workbench-pipeline-editor.png"
+    alt="AgentCadence orchestration workbench with a sample pipeline: Coding stage in parallel and Review stage sequential"
+  />
 </p>
+
+<sub>GitHub’s README viewer may proxy or downscale images; “Save image as” from the page can be a small (~40KB) preview. For the full PNG (~283KB), open the [file in the repo](https://github.com/toddwyl/AgentCadence/blob/main/docs/images/workbench-pipeline-editor.png) and use **Raw**, or use the copy at `docs/images/workbench-pipeline-editor.png` after `git clone` / `git pull`.</sub>
 
 ## Why AgentCadence
 

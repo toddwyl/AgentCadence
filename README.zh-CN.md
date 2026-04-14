@@ -21,8 +21,13 @@
 编排工作台用于可视化搭建 Pipeline：多阶段流程、阶段内串行或并行步骤、按步骤配置工具与提示词，以及从浏览器一键运行（CLI 实际在服务端所在机器上执行）。
 
 <p align="center">
-  <img src="./docs/images/workbench-pipeline-editor.png" alt="AgentCadence 编排工作台示例：Coding 阶段并行、Review 阶段串行" width="920" />
+  <img
+    src="https://raw.githubusercontent.com/toddwyl/AgentCadence/main/docs/images/workbench-pipeline-editor.png"
+    alt="AgentCadence 编排工作台示例：Coding 阶段并行、Review 阶段串行"
+  />
 </p>
+
+<sub>GitHub 在 README 里展示的图片可能经代理/压缩；在网页上「图片另存为」有时会得到约 40KB 的预览图。完整 PNG（约 283KB）请打开仓库里的 [该文件](https://github.com/toddwyl/AgentCadence/blob/main/docs/images/workbench-pipeline-editor.png) 点 **Raw** 下载，或使用 `git clone` / `git pull` 后的本地路径 `docs/images/workbench-pipeline-editor.png`。</sub>
 
 ## 为什么是 AgentCadence
 
