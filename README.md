@@ -16,6 +16,14 @@
   Design staged workflows, run agent CLIs on your machine, watch live transcript-style activity, and keep reusable templates, automation triggers, and run history in one place.
 </p>
 
+## Product preview
+
+The orchestration workbench is where you compose pipelines: multiple stages, parallel or sequential steps inside a stage, per-step tool and prompt configuration, and one-click runs while agents execute on the host machine.
+
+<p align="center">
+  <img src="./docs/images/workbench-pipeline-editor.png" alt="AgentCadence orchestration workbench with a sample pipeline: Coding stage in parallel and Review stage sequential" width="920" />
+</p>
+
 ## Why AgentCadence
 
 AgentCadence is built for the gap between a single agent chat and a full CI system.

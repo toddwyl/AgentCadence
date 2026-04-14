@@ -16,6 +16,14 @@
   你可以在浏览器里设计多阶段 Pipeline，调用本机 Agent CLI 执行任务，实时查看转录流式活动记录，并统一管理模板、自动化触发器和运行历史。
 </p>
 
+## 产品预览
+
+编排工作台用于可视化搭建 Pipeline：多阶段流程、阶段内串行或并行步骤、按步骤配置工具与提示词，以及从浏览器一键运行（CLI 实际在服务端所在机器上执行）。
+
+<p align="center">
+  <img src="./docs/images/workbench-pipeline-editor.png" alt="AgentCadence 编排工作台示例：Coding 阶段并行、Review 阶段串行" width="920" />
+</p>
+
 ## 为什么是 AgentCadence
 
 AgentCadence 解决的是“单个 agent 对话”和“完整 CI 系统”之间的空白地带。
