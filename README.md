@@ -22,7 +22,7 @@ The orchestration workbench is where you compose pipelines: multiple stages, par
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/toddwyl/AgentCadence/main/docs/images/workbench-pipeline-editor.png"
+    src="https://raw.githubusercontent.com/toddwyl/AgentCadence/main/docs/images/orchestration-workbench-preview.png"
     alt="AgentCadence orchestration workbench with a sample pipeline: Coding stage in parallel and Review stage sequential"
   />
 </p>

@@ -22,7 +22,7 @@
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/toddwyl/AgentCadence/main/docs/images/workbench-pipeline-editor.png"
+    src="https://raw.githubusercontent.com/toddwyl/AgentCadence/main/docs/images/orchestration-workbench-preview.png"
     alt="AgentCadence 编排工作台示例：Coding 阶段并行、Review 阶段串行"
   />
 </p>
