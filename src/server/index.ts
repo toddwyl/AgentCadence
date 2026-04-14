@@ -10,8 +10,12 @@ import settingsRoutes from './routes/settings.js';
 import templateRoutes from './routes/templates.js';
 import promptMentionRoutes from './routes/prompt-mentions.js';
 import fsRoutes from './routes/fs.js';
+import scheduleRoutes from './routes/schedules.js';
+import webhookRoutes from './routes/webhooks.js';
+import postActionRoutes from './routes/post-actions.js';
 import { initWebSocket } from './ws.js';
 import { autoDetectAndSaveProfile } from './services/profile-autodetect.js';
+import { startAllSchedules } from './services/cron-scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3712;
@@ -27,6 +31,9 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/prompt-mentions', promptMentionRoutes);
 app.use('/api/fs', fsRoutes);
+app.use('/api/schedules', scheduleRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/post-actions', postActionRoutes);
 
 const clientDist = path.resolve(__dirname, '../../dist/client');
 app.use(express.static(clientDist));
@@ -45,5 +52,6 @@ void (async () => {
   }
   server.listen(PORT, () => {
     console.log(`\n  🚀 AgentCadence server running at http://localhost:${PORT}\n`);
+    startAllSchedules();
   });
 })();

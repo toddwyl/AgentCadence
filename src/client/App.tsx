@@ -17,6 +17,9 @@ import { AutoPlannerDialog } from './components/planner/AutoPlannerDialog';
 import { CLIProfileSetup } from './components/settings/CLIProfileSetup';
 import { ModeAnalytics } from './components/analytics/ModeAnalytics';
 import { TemplateManager } from './components/templates/TemplateManager';
+import { ScheduleManager } from './components/schedules/ScheduleManager';
+import { WebhookManager } from './components/webhooks/WebhookManager';
+import { PostActionManager } from './components/post-actions/PostActionManager';
 
 export default function App() {
   const store = useAppStore();
@@ -117,6 +120,9 @@ export default function App() {
       {store.showSettings && <CLIProfileSetup />}
       {store.showAnalytics && <ModeAnalytics />}
       {store.showTemplates && <TemplateManager />}
+      {store.showSchedules && <ScheduleManager />}
+      {store.showWebhooks && <WebhookManager />}
+      {store.showPostActions && <PostActionManager />}
     </div>
   );
 }

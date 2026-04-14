@@ -7,6 +7,13 @@ import type {
   CLIProfile,
   LLMConfig,
   ExecutionNotificationSettings,
+  Schedule,
+  ScheduleRun,
+  Webhook,
+  WebhookRun,
+  PostAction,
+  PostActionBinding,
+  PostActionRun,
 } from '../../shared/types.js';
 import {
   DEFAULT_CLI_PROFILE,
@@ -88,4 +95,67 @@ export function loadTemplates(): PipelineTemplate[] {
 
 export function saveTemplates(templates: PipelineTemplate[]) {
   writeJSON('templates.json', templates);
+}
+
+// MARK: - Schedule Store
+
+export function loadSchedules(): Schedule[] {
+  return readJSON<Schedule[]>('schedules.json', []);
+}
+
+export function saveSchedules(schedules: Schedule[]) {
+  writeJSON('schedules.json', schedules);
+}
+
+export function loadScheduleRuns(): ScheduleRun[] {
+  return readJSON<ScheduleRun[]>('schedule-runs.json', []);
+}
+
+export function saveScheduleRuns(runs: ScheduleRun[]) {
+  // Keep last 200 runs
+  writeJSON('schedule-runs.json', runs.slice(-200));
+}
+
+// MARK: - Webhook Store
+
+export function loadWebhooks(): Webhook[] {
+  return readJSON<Webhook[]>('webhooks.json', []);
+}
+
+export function saveWebhooks(webhooks: Webhook[]) {
+  writeJSON('webhooks.json', webhooks);
+}
+
+export function loadWebhookRuns(): WebhookRun[] {
+  return readJSON<WebhookRun[]>('webhook-runs.json', []);
+}
+
+export function saveWebhookRuns(runs: WebhookRun[]) {
+  writeJSON('webhook-runs.json', runs.slice(-200));
+}
+
+// MARK: - Post-Action Store
+
+export function loadPostActions(): PostAction[] {
+  return readJSON<PostAction[]>('post-actions.json', []);
+}
+
+export function savePostActions(actions: PostAction[]) {
+  writeJSON('post-actions.json', actions);
+}
+
+export function loadPostActionBindings(): PostActionBinding[] {
+  return readJSON<PostActionBinding[]>('post-action-bindings.json', []);
+}
+
+export function savePostActionBindings(bindings: PostActionBinding[]) {
+  writeJSON('post-action-bindings.json', bindings);
+}
+
+export function loadPostActionRuns(): PostActionRun[] {
+  return readJSON<PostActionRun[]>('post-action-runs.json', []);
+}
+
+export function savePostActionRuns(runs: PostActionRun[]) {
+  writeJSON('post-action-runs.json', runs.slice(-200));
 }

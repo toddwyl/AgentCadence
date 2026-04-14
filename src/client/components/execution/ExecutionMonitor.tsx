@@ -50,6 +50,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     [pipeline.runHistory]
   );
   const latestRun = sortedRuns[0];
+  const allSteps = (pipeline.stages ?? []).flatMap((s) => s.steps ?? []);
 
   useEffect(() => {
     if (live) {
@@ -62,14 +63,13 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
   // Auto-select first running step so streaming output is visible immediately
   useEffect(() => {
     if (!live) return;
-    // If user already selected a step, don't override
     if (outputRef?.kind === 'live') return;
     const runningStep = allSteps.find((s) => stepStatuses[s.id] === 'running');
     if (runningStep) {
       setOutputRef({ kind: 'live', stepId: runningStep.id });
       selectStep(runningStep.id);
     }
-  }, [live, stepStatuses]);
+  }, [allSteps, live, outputRef, selectStep, stepStatuses]);
 
   // When current step completes, auto-switch to next running step
   useEffect(() => {
@@ -82,7 +82,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
         selectStep(nextRunning.id);
       }
     }
-  }, [live, stepStatuses, outputRef]);
+  }, [allSteps, live, outputRef, selectStep, stepStatuses]);
 
   const resolveOutput = (): string | null => {
     if (!outputRef) return null;
@@ -106,8 +106,6 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     setOutputRef({ kind: 'record', runId, stepId });
     selectStep(stepId);
   };
-
-  const allSteps = (pipeline.stages ?? []).flatMap((s) => s.steps ?? []);
   const completedCount = allSteps.filter((s) => stepStatuses[s.id] === 'completed').length;
   const failedCount = allSteps.filter((s) => stepStatuses[s.id] === 'failed').length;
   const skippedCount = allSteps.filter((s) => stepStatuses[s.id] === 'skipped').length;
@@ -377,7 +375,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                 {t.execution.rawLogTab}
               </button>
             </div>
-          </div>
+            </div>
           {outputPanel === 'activity' ? (
             <AgentActivityFeed
               key={outputRef ? `${outputRef.kind}-${outputRef.stepId}-act` : 'act-none'}

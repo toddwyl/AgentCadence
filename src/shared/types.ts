@@ -527,7 +527,14 @@ export type WSEventType =
   | 'planning_error'
   | 'execution_error'
   | 'execution_state_snapshot'
-  | 'agent_stream_event';
+  | 'agent_stream_event'
+  | 'schedule_status_changed'
+  | 'schedule_run_started'
+  | 'schedule_run_finished'
+  | 'webhook_triggered'
+  | 'webhook_run_finished'
+  | 'post_action_triggered'
+  | 'post_action_finished';
 
 export interface WSMessage {
   type: WSEventType;
@@ -575,4 +582,170 @@ export interface AppState {
   activeProfile: CLIProfile;
   llmConfig: LLMConfig;
   notificationSettings: ExecutionNotificationSettings;
+}
+
+// MARK: - Schedule Models
+
+export type ScheduleStatus = 'idle' | 'running' | 'error';
+export type ScheduleRunStatus = 'running' | 'success' | 'failed' | 'timeout';
+
+export interface Schedule {
+  id: string;
+  name: string;
+  pipeline_id: string;
+  prompt_override?: string;
+  cron_expression: string;
+  timezone: string;
+  enabled: boolean;
+  last_run_at: string | null;
+  next_run_at: string | null;
+  status: ScheduleStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleRun {
+  id: string;
+  schedule_id: string;
+  pipeline_run_id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: ScheduleRunStatus;
+  error: string;
+}
+
+export interface CreateScheduleRequest {
+  name: string;
+  pipeline_id: string;
+  prompt_override?: string;
+  cron_expression: string;
+  timezone: string;
+  enabled?: boolean;
+}
+
+export interface UpdateScheduleRequest {
+  name?: string;
+  pipeline_id?: string;
+  prompt_override?: string;
+  cron_expression?: string;
+  timezone?: string;
+  enabled?: boolean;
+}
+
+// MARK: - Webhook Models
+
+export type WebhookStatus = 'idle' | 'running';
+export type WebhookRunStatus = 'running' | 'success' | 'failed' | 'timeout';
+
+export interface Webhook {
+  id: string;
+  name: string;
+  pipeline_id: string;
+  prompt_template: string;
+  token: string;
+  enabled: boolean;
+  timeout_seconds: number;
+  max_concurrent: number;
+  last_triggered_at: string | null;
+  status: WebhookStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookRun {
+  id: string;
+  webhook_id: string;
+  pipeline_run_id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: WebhookRunStatus;
+  error: string;
+  request_payload?: string;
+  caller_ip?: string;
+}
+
+export interface CreateWebhookRequest {
+  name: string;
+  pipeline_id: string;
+  prompt_template: string;
+  timeout_seconds?: number;
+  max_concurrent?: number;
+  enabled?: boolean;
+}
+
+export interface UpdateWebhookRequest {
+  name?: string;
+  pipeline_id?: string;
+  prompt_template?: string;
+  timeout_seconds?: number;
+  max_concurrent?: number;
+  enabled?: boolean;
+}
+
+// MARK: - Post-Action Models
+
+export type PostActionAuthType = 'none' | 'bearer' | 'basic' | 'header';
+export type PostActionRunStatus = 'success' | 'failed' | 'retrying';
+export type TriggerType = 'webhook' | 'schedule' | 'manual';
+export type TriggerOn = 'success' | 'failure' | 'any';
+
+export interface PostAction {
+  id: string;
+  name: string;
+  description: string;
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  body_template: string;
+  auth_type: PostActionAuthType;
+  auth_config: Record<string, string>;
+  timeout_seconds: number;
+  retry_count: number;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface PostActionBinding {
+  id: string;
+  post_action_id: string;
+  trigger_type: TriggerType;
+  trigger_id: string;
+  trigger_on: TriggerOn;
+  body_override: string;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface PostActionRun {
+  id: string;
+  post_action_id: string;
+  binding_id: string;
+  triggered_at: string;
+  completed_at: string | null;
+  status: PostActionRunStatus;
+  status_code: number;
+  response_body: string;
+  error: string;
+}
+
+export interface CreatePostActionRequest {
+  name: string;
+  description?: string;
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body_template?: string;
+  auth_type?: PostActionAuthType;
+  auth_config?: Record<string, string>;
+  timeout_seconds?: number;
+  retry_count?: number;
+  enabled?: boolean;
+}
+
+export interface CreateBindingRequest {
+  trigger_type: TriggerType;
+  trigger_id: string;
+  trigger_on?: TriggerOn;
+  body_override?: string;
+  enabled?: boolean;
 }

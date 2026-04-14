@@ -10,3 +10,4 @@ tests/AgentCadenceTest/
 src/shared/types.js
 .DS_Store
 *.log
+.omx/

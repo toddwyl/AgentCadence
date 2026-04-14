@@ -65,6 +65,9 @@ interface AppState {
   showAutoPlanner: boolean;
   showAnalytics: boolean;
   showTemplates: boolean;
+  showSchedules: boolean;
+  showWebhooks: boolean;
+  showPostActions: boolean;
   theme: Theme;
   locale: Locale;
   t: Translations;
@@ -123,6 +126,9 @@ interface AppState {
   setShowAutoPlanner: (v: boolean) => void;
   setShowAnalytics: (v: boolean) => void;
   setShowTemplates: (v: boolean) => void;
+  setShowSchedules: (v: boolean) => void;
+  setShowWebhooks: (v: boolean) => void;
+  setShowPostActions: (v: boolean) => void;
   setTheme: (theme: Theme) => void;
   setLocale: (locale: Locale) => void;
   setTerminalPtySize: (size: { cols: number; rows: number } | null) => void;
@@ -156,6 +162,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   showAutoPlanner: false,
   showAnalytics: false,
   showTemplates: false,
+  showSchedules: false,
+  showWebhooks: false,
+  showPostActions: false,
   theme: readStoredTheme(),
   locale: readStoredLocale(),
   t: getTranslations(readStoredLocale()),
@@ -479,6 +488,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   setShowAutoPlanner: (v) => set({ showAutoPlanner: v }),
   setShowAnalytics: (v) => set({ showAnalytics: v }),
   setShowTemplates: (v) => set({ showTemplates: v }),
+  setShowSchedules: (v) => set({ showSchedules: v }),
+  setShowWebhooks: (v) => set({ showWebhooks: v }),
+  setShowPostActions: (v) => set({ showPostActions: v }),
   setTheme: (theme) => {
     localStorage.setItem('agentcadence-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);

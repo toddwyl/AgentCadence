@@ -28,6 +28,9 @@ async function request<T>(url: string, opts?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error || `HTTP ${res.status}`);
   }
+  if (res.status === 204 || res.headers.get('content-length') === '0') {
+    return undefined as T;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -121,4 +124,50 @@ export const api = {
     request<{ markdown: string }>(`/templates/${id}/export-md`),
   importTemplateMd: (markdown: string) =>
     request<any>('/templates/import-md', { method: 'POST', body: JSON.stringify({ markdown }) }),
+
+  // ---- Schedules ----
+  getSchedules: () => request<any[]>('/schedules'),
+  getSchedule: (id: string) => request<any>(`/schedules/${id}`),
+  createSchedule: (data: Record<string, unknown>) =>
+    request<any>('/schedules', { method: 'POST', body: JSON.stringify(data) }),
+  updateSchedule: (id: string, data: Record<string, unknown>) =>
+    request<any>(`/schedules/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSchedule: (id: string) =>
+    request<any>(`/schedules/${id}`, { method: 'DELETE' }),
+  toggleSchedule: (id: string) =>
+    request<any>(`/schedules/${id}/toggle`, { method: 'PATCH' }),
+  getScheduleRuns: (id: string) => request<any[]>(`/schedules/${id}/runs`),
+
+  // ---- Webhooks ----
+  getWebhooks: () => request<any[]>('/webhooks'),
+  getWebhook: (id: string) => request<any>(`/webhooks/${id}`),
+  createWebhook: (data: Record<string, unknown>) =>
+    request<any>('/webhooks', { method: 'POST', body: JSON.stringify(data) }),
+  updateWebhook: (id: string, data: Record<string, unknown>) =>
+    request<any>(`/webhooks/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteWebhook: (id: string) =>
+    request<any>(`/webhooks/${id}`, { method: 'DELETE' }),
+  toggleWebhook: (id: string) =>
+    request<any>(`/webhooks/${id}/toggle`, { method: 'PATCH' }),
+  regenerateWebhookToken: (id: string) =>
+    request<any>(`/webhooks/${id}/regenerate`, { method: 'POST' }),
+  getWebhookRuns: (id: string) => request<any[]>(`/webhooks/${id}/runs`),
+
+  // ---- Post-Actions ----
+  getPostActions: () => request<any[]>('/post-actions'),
+  getPostAction: (id: string) => request<any>(`/post-actions/${id}`),
+  createPostAction: (data: Record<string, unknown>) =>
+    request<any>('/post-actions', { method: 'POST', body: JSON.stringify(data) }),
+  updatePostAction: (id: string, data: Record<string, unknown>) =>
+    request<any>(`/post-actions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePostAction: (id: string) =>
+    request<any>(`/post-actions/${id}`, { method: 'DELETE' }),
+  togglePostAction: (id: string) =>
+    request<any>(`/post-actions/${id}/toggle`, { method: 'PATCH' }),
+  getPostActionBindings: (id: string) => request<any[]>(`/post-actions/${id}/bindings`),
+  createPostActionBinding: (id: string, data: Record<string, unknown>) =>
+    request<any>(`/post-actions/${id}/bindings`, { method: 'POST', body: JSON.stringify(data) }),
+  deletePostActionBinding: (id: string, bindingId: string) =>
+    request<any>(`/post-actions/${id}/bindings/${bindingId}`, { method: 'DELETE' }),
+  getPostActionRuns: (id: string) => request<any[]>(`/post-actions/${id}/runs`),
 };

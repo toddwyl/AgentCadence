@@ -22,6 +22,7 @@ import {
   setStepRetry,
   getActiveRunSnapshots,
 } from '../services/live-run-buffer.js';
+import { executePostActionsForRun } from '../services/post-action-executor.js';
 
 const router = Router();
 
@@ -189,6 +190,9 @@ async function runPipeline(pipeline: Pipeline, ptyOpts?: { cols?: number; rows?:
     type: 'pipeline_run_finished',
     payload: { pipelineID: pipeline.id, runID: runRecord.id, status: finalStatus, error: finalError },
   });
+
+  // Trigger post-actions for manual runs
+  executePostActionsForRun('manual', pipeline.id, runRecord).catch(() => {});
 }
 
 function updateRunRecordStepOutput(runRecord: PipelineRunRecord, stepID: string, output: string) {
