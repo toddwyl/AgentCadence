@@ -5,7 +5,7 @@ describe('safeToolMeta', () => {
   it('returns correct meta for "cursor"', () => {
     const meta = safeToolMeta('cursor');
     expect(meta.displayName).toBe('Cursor');
-    expect(meta.tintColor).toBe('#3b82f6');
+    expect(meta.tintColor).toBe('#374151');
     expect(meta.defaultModels).toBeInstanceOf(Array);
     expect(meta.defaultModels.length).toBeGreaterThan(0);
   });
@@ -19,7 +19,7 @@ describe('safeToolMeta', () => {
   it('returns correct meta for "codex"', () => {
     const meta = safeToolMeta('codex');
     expect(meta.displayName).toBe('Codex');
-    expect(meta.tintColor).toBe('#22c55e');
+    expect(meta.tintColor).toBe('#6366f1');
   });
 
   it('returns fallback (cursor) for undefined', () => {

@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  AgentFeedItem,
+  AgentStreamUiEvent,
   PipelineRunRecord,
   StageRunRecord,
   StepRunRecord,
@@ -9,6 +11,7 @@ import type {
   Pipeline,
   RetryRecord,
 } from '../../shared/types.js';
+import { applyAgentStreamEvent } from '../../shared/agent-feed-merge.js';
 import { DAGScheduler, ExecutionControl, SchedulerError } from '../services/dag-scheduler.js';
 import { stepResultDisplayOutput } from '../services/tool-runner.js';
 import { loadPipelines, savePipelines, loadProfile } from '../services/store.js';
@@ -111,6 +114,7 @@ async function runPipeline(pipeline: Pipeline, ptyOpts?: { cols?: number; rows?:
         updateRunRecordStep(runRecord, stepID, status);
       },
       (stepID, output) => {
+        appendRunRecordStepRawOutput(runRecord, stepID, output);
         appendStepOutput(pipeline.id, stepID, output);
         broadcast({
           type: 'step_output',
@@ -118,6 +122,7 @@ async function runPipeline(pipeline: Pipeline, ptyOpts?: { cols?: number; rows?:
         });
       },
       (stepID, event) => {
+        appendRunRecordStepAgentEvent(runRecord, stepID, event);
         appendAgentStreamEvent(pipeline.id, stepID, event);
         broadcast({
           type: 'agent_stream_event',
@@ -152,6 +157,7 @@ async function runPipeline(pipeline: Pipeline, ptyOpts?: { cols?: number; rows?:
         updateRunRecordStepReview(runRecord, result.stepID, [], result.reviewResult);
       }
       updateRunRecordStepOutput(runRecord, result.stepID, stepResultDisplayOutput(result));
+      ensureRunRecordRawOutput(runRecord, result.stepID, stepResultDisplayOutput(result));
     }
   } catch (err) {
     if (err instanceof SchedulerError) {
@@ -162,6 +168,7 @@ async function runPipeline(pipeline: Pipeline, ptyOpts?: { cols?: number; rows?:
       }
       if (err.failedResult) {
         updateRunRecordStepOutput(runRecord, err.failedResult.stepID, stepResultDisplayOutput(err.failedResult));
+        ensureRunRecordRawOutput(runRecord, err.failedResult.stepID, stepResultDisplayOutput(err.failedResult));
       }
     } else {
       finalStatus = 'failed';
@@ -200,6 +207,42 @@ function updateRunRecordStepOutput(runRecord: PipelineRunRecord, stepID: string,
     for (const stepRun of sr.stepRuns) {
       if (stepRun.stepID === stepID) {
         stepRun.output = output;
+        return;
+      }
+    }
+  }
+}
+
+function appendRunRecordStepRawOutput(runRecord: PipelineRunRecord, stepID: string, chunk: string) {
+  if (!chunk) return;
+  for (const sr of runRecord.stageRuns) {
+    for (const stepRun of sr.stepRuns) {
+      if (stepRun.stepID === stepID) {
+        stepRun.rawOutput = (stepRun.rawOutput ?? '') + chunk;
+        return;
+      }
+    }
+  }
+}
+
+function ensureRunRecordRawOutput(runRecord: PipelineRunRecord, stepID: string, output: string) {
+  if (!output.trim()) return;
+  for (const sr of runRecord.stageRuns) {
+    for (const stepRun of sr.stepRuns) {
+      if (stepRun.stepID === stepID) {
+        if (!stepRun.rawOutput?.trim()) stepRun.rawOutput = output;
+        return;
+      }
+    }
+  }
+}
+
+function appendRunRecordStepAgentEvent(runRecord: PipelineRunRecord, stepID: string, event: AgentStreamUiEvent) {
+  for (const sr of runRecord.stageRuns) {
+    for (const stepRun of sr.stepRuns) {
+      if (stepRun.stepID === stepID) {
+        const prev = stepRun.agentFeed ?? ([] as AgentFeedItem[]);
+        stepRun.agentFeed = applyAgentStreamEvent(prev, event);
         return;
       }
     }

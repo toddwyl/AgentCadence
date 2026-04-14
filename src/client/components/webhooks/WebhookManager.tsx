@@ -2,10 +2,20 @@ import { useState, useEffect } from 'react';
 import type { Webhook, WebhookRun, Pipeline } from '@shared/types';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../store/app-store';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { ModalCloseButton } from '../ui/ModalCloseButton';
 
-export function WebhookManager() {
+export function WebhookManager({
+  embedded = false,
+  onClose,
+}: {
+  embedded?: boolean;
+  onClose?: () => void;
+} = {}) {
   const { t, pipelines } = useAppStore();
   const setShowWebhooks = useAppStore((s) => s.setShowWebhooks);
+  const close = onClose ?? (() => setShowWebhooks(false));
+  useEscapeToClose(close, !embedded);
 
   const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -108,22 +118,8 @@ export function WebhookManager() {
   -d '{"message": "hello"}'`;
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <h2 className="text-sm font-semibold theme-text">{t.webhooks.title}</h2>
-            <p className="text-[10px] theme-text-muted">{t.webhooks.subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={openCreate} className="btn-ghost text-xs text-accent-glow">{t.webhooks.create}</button>
-            <button onClick={() => setShowWebhooks(false)} className="btn-ghost text-xs">{t.stepDetail.close}</button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto">
+  const content = (
+    <div className="flex-1 overflow-auto">
           {/* Token display */}
           {fullToken && (
             <div className="mx-6 mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 animate-fade-in">
@@ -186,7 +182,7 @@ export function WebhookManager() {
               {webhooks.map((w) => (
                 <div key={w.id} onClick={() => setSelectedId(selectedId === w.id ? null : w.id)}
                   className={`p-3 rounded-lg cursor-pointer transition-all ${selectedId === w.id ? 'theme-active-bg' : 'theme-hover'}`}
-                  style={{ border: selectedId === w.id ? '1px solid rgba(99,102,241,0.2)' : '1px solid var(--color-border)' }}>
+                  style={{ border: selectedId === w.id ? '1px solid var(--color-accent-border)' : '1px solid var(--color-border)' }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <button onClick={(e) => { e.stopPropagation(); handleToggle(w.id); }}
@@ -196,7 +192,7 @@ export function WebhookManager() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium theme-text truncate">{w.name}</span>
-                          <span className={`text-[10px] ${w.status === 'running' ? 'text-blue-400' : 'theme-text-muted'}`}>{w.status}</span>
+                          <span className={`text-[10px] ${w.status === 'running' ? 'text-status-running' : 'theme-text-muted'}`}>{w.status}</span>
                         </div>
                         <div className="text-[10px] theme-text-muted truncate">
                           {pipelineName(w.pipeline_id)} · Token: {w.token}
@@ -249,6 +245,39 @@ export function WebhookManager() {
             </div>
           )}
         </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.webhooks.title}</h2>
+            <p className="text-[10px] theme-text-muted">{t.webhooks.subtitle}</p>
+          </div>
+          <div>
+            <button onClick={openCreate} className="btn-ghost text-xs theme-accent-text">{t.webhooks.create}</button>
+          </div>
+        </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.webhooks.title}</h2>
+            <p className="text-[10px] theme-text-muted">{t.webhooks.subtitle}</p>
+          </div>
+          <ModalCloseButton onClick={close} label={t.stepDetail.close} />
+        </div>
+        <div className="px-6 pt-4 shrink-0">
+          <button onClick={openCreate} className="btn-ghost text-xs theme-accent-text">{t.webhooks.create}</button>
+        </div>
+        {content}
       </div>
     </div>
   );

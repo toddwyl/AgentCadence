@@ -11,3 +11,7 @@ src/shared/types.js
 .DS_Store
 *.log
 .omx/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo

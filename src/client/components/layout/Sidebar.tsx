@@ -1,15 +1,17 @@
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
 import { pickWorkingDirectory } from '../../lib/pick-folder';
 import type { Pipeline, PipelineTemplate } from '@shared/types';
+import { BrandMark } from '../ui/BrandMark';
 
 export function Sidebar() {
   const {
     projectGroups, selectedPipelineID, selectPipeline, deletePipeline,
-    isExecuting, executingPipelineID, setShowAutoPlanner, setShowSettings,
-    setShowAnalytics, setShowTemplates, setShowSchedules, setShowWebhooks,
-    setShowPostActions, t,
+    isExecuting, executingPipelineID, setShowAutoPlanner,
+    setShowAnalytics, setShowTemplates, openSettingsTab, t,
+    sidebarCollapsed, toggleSidebarCollapsed,
   } = useAppStore();
 
   const [showNewProject, setShowNewProject] = useState(false);
@@ -58,40 +60,71 @@ export function Sidebar() {
     setShowNewProject(false);
   };
 
+  const openNewProject = () => {
+    if (sidebarCollapsed) toggleSidebarCollapsed();
+    setShowNewProject(true);
+  };
+
   return (
-    <aside className="w-72 shrink-0 min-w-0 max-w-full h-screen flex flex-col theme-sidebar overflow-hidden">
+    <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} shrink-0 min-w-0 max-w-full h-dvh flex flex-col theme-sidebar overflow-hidden transition-[width] duration-150`}>
       {/* Logo */}
-      <div className="p-5 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-accent-primary to-accent-secondary flex items-center justify-center">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h3.75m-3.75 6h7.5m-7.5 6h3.75" />
-          </svg>
-        </div>
-        <div>
-          <h1 className="font-display font-bold theme-text text-lg leading-tight">{t.app.name}</h1>
-          <p className="text-[10px] theme-text-muted tracking-wider uppercase">{t.app.subtitle}</p>
-        </div>
+      <div className={`p-4 flex ${sidebarCollapsed ? 'flex-col items-center gap-3' : 'items-center justify-between gap-3'}`}>
+        {!sidebarCollapsed ? (
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="size-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: '#F4EEFF', border: '1px solid rgba(124, 58, 237, 0.18)', color: '#7C3AED' }}
+            >
+              <BrandMark className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-display font-bold theme-text text-lg leading-tight text-balance">{t.app.name}</h1>
+              <p className="text-xs theme-text-secondary text-pretty">{t.app.subtitle}</p>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="size-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: '#F4EEFF', border: '1px solid rgba(124, 58, 237, 0.18)', color: '#7C3AED' }}
+          >
+            <BrandMark className="size-5" />
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={toggleSidebarCollapsed}
+          className="btn-ghost size-8 inline-flex items-center justify-center rounded-full shrink-0"
+          title={sidebarCollapsed ? t.sidebar.expand : t.sidebar.collapse}
+          aria-label={sidebarCollapsed ? t.sidebar.expand : t.sidebar.collapse}
+        >
+          {sidebarCollapsed ? <ChevronRight className="size-4" aria-hidden /> : <ChevronLeft className="size-4" aria-hidden />}
+        </button>
       </div>
 
       {/* Actions */}
-      <div className="px-3 mb-2 flex gap-2 min-w-0">
-        <button onClick={() => setShowNewProject(true)} className="flex-1 min-w-0 btn-ghost text-xs flex items-center justify-center gap-1.5 theme-border" style={{ border: '1px solid var(--color-border)' }} title={t.sidebar.newPipeline}>
+      {!sidebarCollapsed ? (
+      <div className="px-3 mb-2 min-w-0 flex gap-2">
+        <button onClick={openNewProject} className={`${sidebarCollapsed ? 'size-10' : 'flex-1'} min-w-0 btn-ghost text-xs flex items-center justify-center gap-1.5 theme-border`} style={{ border: '1px solid var(--color-border)' }} title={t.sidebar.newPipeline} aria-label={t.sidebar.newPipeline}>
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           <span className="truncate">{t.sidebar.newPipeline}</span>
         </button>
-        <button onClick={() => setShowAutoPlanner(true)} className="flex-1 min-w-0 btn-ghost text-xs flex items-center justify-center gap-1.5 text-accent-glow" style={{ border: '1px solid rgba(99,102,241,0.2)' }} title={t.sidebar.aiGenerate}>
+        <button
+          onClick={() => setShowAutoPlanner(true)}
+          className="flex-1 min-w-0 btn-primary text-xs flex items-center justify-center gap-1.5"
+          title={t.sidebar.aiGenerate}
+          aria-label={t.sidebar.aiGenerate}
+        >
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <span className="truncate">{t.sidebar.aiGenerate}</span>
         </button>
       </div>
+      ) : null}
 
       {/* New pipeline form */}
-      {showNewProject && (
+      {showNewProject && !sidebarCollapsed && (
         <div className="mx-3 mb-3 p-3 glass-panel space-y-2 animate-fade-in">
           <input className="input-field text-sm" placeholder={t.sidebar.pipelineName} value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus />
-          <label className="block text-[10px] theme-text-tertiary">{t.sidebar.pipelineTemplate}</label>
+          <label className="block text-xs theme-text-tertiary">{t.sidebar.pipelineTemplate}</label>
           <select
             className="input-field text-sm w-full"
             value={templateId}
@@ -121,18 +154,22 @@ export function Sidebar() {
       )}
 
       {/* Pipeline list */}
+      {!sidebarCollapsed ? (
       <div className="flex-1 overflow-y-auto px-3 space-y-4">
         {groups.map((group) => (
           <div key={group.workingDirectory} className="animate-fade-in">
-            <div className="flex items-center gap-2 mb-1.5 px-2">
-              <svg className="w-3.5 h-3.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" /></svg>
-              <span className="text-xs font-medium theme-text-tertiary truncate">{group.displayName}</span>
-            </div>
+            {!sidebarCollapsed ? (
+              <div className="flex items-center gap-2 mb-1.5 px-2">
+                <svg className="w-3.5 h-3.5 theme-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" /></svg>
+                <span className="text-xs font-medium theme-text-secondary truncate">{group.displayName}</span>
+              </div>
+            ) : null}
             <div className="space-y-0.5">
               {group.pipelines.map((pipeline) => (
                 <PipelineItem key={pipeline.id} pipeline={pipeline}
                   selected={selectedPipelineID === pipeline.id}
                   running={isExecuting && executingPipelineID === pipeline.id}
+                  collapsed={sidebarCollapsed}
                   onSelect={() => selectPipeline(pipeline.id)}
                   onDelete={() => deletePipeline(pipeline.id)} />
               ))}
@@ -140,35 +177,14 @@ export function Sidebar() {
           </div>
         ))}
       </div>
+      ) : <div className="flex-1" />}
 
       {/* Bottom bar: equal flex columns + truncate so zoom/long labels stay inside sidebar */}
       <div className="p-3 space-y-1.5 shrink-0" style={{ borderTop: '1px solid var(--color-border)' }}>
-        <div className="flex gap-1.5 min-w-0">
-          <button onClick={() => setShowSchedules(true)} className="btn-ghost text-xs flex flex-1 min-w-0 items-center justify-center gap-1 px-1.5 py-2" title={t.sidebar.schedules}>
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span className="truncate">{t.sidebar.schedules}</span>
-          </button>
-          <button onClick={() => setShowWebhooks(true)} className="btn-ghost text-xs flex flex-1 min-w-0 items-center justify-center gap-1 px-1.5 py-2" title={t.sidebar.webhooks}>
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
-            <span className="truncate">{t.sidebar.webhooks}</span>
-          </button>
-          <button onClick={() => setShowPostActions(true)} className="btn-ghost text-xs flex flex-1 min-w-0 items-center justify-center gap-1 px-1.5 py-2" title={t.sidebar.postActions}>
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
-            <span className="truncate">{t.sidebar.postActions}</span>
-          </button>
-        </div>
-        <div className="flex gap-1.5 min-w-0">
-          <button onClick={() => setShowSettings(true)} className="btn-ghost text-xs flex flex-1 min-w-0 items-center justify-center gap-1 px-1.5 py-2" title={t.sidebar.settings}>
+        <div className={`min-w-0 ${sidebarCollapsed ? 'flex flex-col gap-1.5 items-center' : 'flex gap-1.5'}`}>
+          <button onClick={() => openSettingsTab('general')} className={`btn-ghost text-xs flex ${sidebarCollapsed ? 'size-10' : 'flex-1'} min-w-0 items-center justify-center gap-1 px-1.5 py-2`} title={t.sidebar.settings} aria-label={t.sidebar.settings}>
             <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            <span className="truncate">{t.sidebar.settings}</span>
-          </button>
-          <button onClick={() => setShowTemplates(true)} className="btn-ghost text-xs flex flex-1 min-w-0 items-center justify-center gap-1 px-1.5 py-2" title={t.sidebar.templates}>
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-            <span className="truncate">{t.sidebar.templates}</span>
-          </button>
-          <button onClick={() => setShowAnalytics(true)} className="btn-ghost text-xs flex flex-1 min-w-0 items-center justify-center gap-1 px-1.5 py-2" title={t.sidebar.insights}>
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
-            <span className="truncate">{t.sidebar.insights}</span>
+            {!sidebarCollapsed ? <span className="truncate">{t.sidebar.settings}</span> : null}
           </button>
         </div>
       </div>
@@ -176,8 +192,8 @@ export function Sidebar() {
   );
 }
 
-function PipelineItem({ pipeline, selected, running, onSelect, onDelete }: {
-  pipeline: Pipeline; selected: boolean; running: boolean; onSelect: () => void; onDelete: () => void;
+function PipelineItem({ pipeline, selected, running, collapsed, onSelect, onDelete }: {
+  pipeline: Pipeline; selected: boolean; running: boolean; collapsed: boolean; onSelect: () => void; onDelete: () => void;
 }) {
   const { t } = useAppStore();
   const stepCount = pipeline.stages.reduce((sum, s) => sum + s.steps.length, 0);
@@ -186,22 +202,41 @@ function PipelineItem({ pipeline, selected, running, onSelect, onDelete }: {
     <div
       data-testid={`pipeline-item-${pipeline.id}`}
       onClick={onSelect}
-      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150
+      title={collapsed ? pipeline.name : undefined}
+      className={`group relative flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-150
         ${selected ? 'theme-active-bg' : 'theme-hover'}`}
-      style={selected ? { border: '1px solid rgba(99,102,241,0.2)' } : { border: '1px solid transparent' }}
+      style={selected ? { border: '1px solid var(--color-accent-border)' } : { border: '1px solid transparent' }}
     >
       {running && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-status-running rounded-full running-glow" />}
+      {collapsed ? (
+        <div className="size-8 rounded-lg flex items-center justify-center text-sm font-semibold tabular-nums theme-text-secondary" style={{ background: 'var(--color-active-bg)' }}>
+          {pipeline.name.trim().charAt(0).toUpperCase() || 'P'}
+        </div>
+      ) : (
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className={`text-sm font-medium truncate ${selected ? 'theme-text' : 'theme-text-secondary'}`}>{pipeline.name}</span>
-          {pipeline.isAIGenerated && <span className="badge bg-accent-primary/15 text-accent-glow text-[9px]">AI</span>}
+          {pipeline.isAIGenerated && (
+              <span
+                className="badge text-xs"
+                style={{ background: 'var(--color-accent-soft)', color: 'var(--color-accent-text)' }}
+              >
+              AI
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[10px] theme-text-muted">{pipeline.stages.length} {t.sidebar.stages} / {stepCount} {t.sidebar.steps}</span>
-          <span className="text-[10px] px-1.5 py-px rounded bg-blue-500/10 text-blue-500">{modeLabel}</span>
+          <span className="text-xs theme-text-tertiary tabular-nums">{pipeline.stages.length} {t.sidebar.stages} / {stepCount} {t.sidebar.steps}</span>
+          <span
+            className="text-xs px-1.5 py-px rounded tabular-nums"
+            style={{ background: 'var(--color-active-bg)', color: 'var(--color-accent-text)' }}
+          >
+            {modeLabel}
+          </span>
         </div>
       </div>
-      {!running && (
+      )}
+      {!running && !collapsed && (
         <button onClick={(e) => { e.stopPropagation(); onDelete(); }} className="opacity-0 group-hover:opacity-100 p-1 theme-text-muted hover:text-red-500 transition-all">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
         </button>

@@ -4,12 +4,14 @@ import { Ghostty, Terminal as GhosttyWebTerminal, FitAddon } from 'ghostty-web';
 import ghosttyWasmUrl from 'ghostty-web/ghostty-vt.wasm?url';
 import { getExecutionGhosttyOptions } from '../../lib/ghosttyTerminalOptions';
 import { useAppStore } from '../../store/app-store';
+import type { Theme } from '../../store/app-store';
 
 interface TerminalPaneProps {
   /** Raw terminal data (may include ANSI escape codes) */
   output: string | null;
   noOutputText: string;
   isLive?: boolean;
+  theme: Theme;
   /** When false, parent renders the review banner (e.g. above activity + raw tabs). */
   suppressReviewBanner?: boolean;
   pendingReview: {
@@ -25,6 +27,7 @@ export function TerminalPane({
   output,
   noOutputText,
   isLive,
+  theme,
   suppressReviewBanner,
   pendingReview,
   respondToReview,
@@ -131,7 +134,7 @@ export function TerminalPane({
       }
       if (disposed || !containerRef.current) return;
 
-      const term = new GhosttyWebTerminal(getExecutionGhosttyOptions(ghostty));
+      const term = new GhosttyWebTerminal(getExecutionGhosttyOptions(ghostty, theme));
       if (disposed) {
         term.dispose();
         return;
@@ -246,7 +249,7 @@ export function TerminalPane({
       fitAddonRef.current = null;
       writtenLenRef.current = 0;
     };
-  }, [setTerminalPtySize]);
+  }, [setTerminalPtySize, theme]);
 
   /** When a run starts (live), snap back to following output like OpenChamber’s new session */
   const prevLiveRef = useRef(isLive);
@@ -296,7 +299,13 @@ export function TerminalPane({
     return (
       <div
         className="flex-1 flex items-center justify-center text-sm"
-        style={{ backgroundColor: '#0d1117', color: '#8b949e' }}
+        style={{
+          background:
+            theme === 'light'
+              ? '#f7f4ef'
+              : '#0d1117',
+          color: theme === 'light' ? '#7b7469' : '#8b949e',
+        }}
       >
         {noOutputText}
       </div>
@@ -304,14 +313,22 @@ export function TerminalPane({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0" style={{ backgroundColor: '#0d1117' }}>
+    <div
+      className="flex-1 flex flex-col min-h-0"
+      style={{
+        background:
+          theme === 'light'
+            ? '#f7f4ef'
+            : '#0d1117',
+      }}
+    >
       {pendingReview && !suppressReviewBanner && (
         <div
           className="flex items-center gap-3 px-4 py-3 text-xs shrink-0"
           style={{
-            backgroundColor: 'rgba(56, 139, 253, 0.1)',
-            borderBottom: '1px solid rgba(56, 139, 253, 0.3)',
-            color: '#58a6ff',
+            backgroundColor: theme === 'light' ? 'rgba(99, 88, 74, 0.08)' : 'rgba(56, 139, 253, 0.1)',
+            borderBottom: `1px solid ${theme === 'light' ? 'rgba(99, 88, 74, 0.18)' : 'rgba(56, 139, 253, 0.3)'}`,
+            color: theme === 'light' ? '#54493f' : '#58a6ff',
           }}
         >
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -347,17 +364,27 @@ export function TerminalPane({
           </button>
         </div>
       )}
-      <div className="relative flex-1 min-h-0 p-1">
-        <div ref={containerRef} className="absolute inset-0 p-0" />
+      <div className="relative flex-1 min-h-0 p-3">
+        <div
+          className="absolute inset-3 rounded-xl overflow-hidden"
+          style={{
+            border: `1px solid ${theme === 'light' ? 'rgba(73, 62, 46, 0.12)' : 'rgba(99,102,241,0.14)'}`,
+            background: theme === 'light' ? '#fbf8f3' : '#0d1117',
+            boxShadow: 'none',
+          }}
+        >
+          <div ref={containerRef} className="absolute inset-0 p-0" />
+        </div>
         {showJumpToBottom && (
           <button
             type="button"
             onClick={handleJumpToBottom}
             className="absolute bottom-3 right-3 z-10 px-2.5 py-1 rounded-md text-xs font-medium shadow-md transition-colors theme-hover"
             style={{
-              backgroundColor: 'rgba(56, 139, 253, 0.2)',
-              color: '#58a6ff',
-              border: '1px solid rgba(56, 139, 253, 0.45)',
+              backgroundColor: theme === 'light' ? 'rgba(99, 88, 74, 0.08)' : 'rgba(56, 139, 253, 0.2)',
+              color: theme === 'light' ? '#54493f' : '#58a6ff',
+              border: `1px solid ${theme === 'light' ? 'rgba(99, 88, 74, 0.18)' : 'rgba(56, 139, 253, 0.45)'}`,
+              boxShadow: 'none',
             }}
           >
             {t.execution.jumpToBottom}

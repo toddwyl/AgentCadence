@@ -14,12 +14,9 @@ import { PipelineEditor } from './components/pipeline/PipelineEditor';
 import { FlowchartView } from './components/flowchart/FlowchartView';
 import { ExecutionMonitor } from './components/execution/ExecutionMonitor';
 import { AutoPlannerDialog } from './components/planner/AutoPlannerDialog';
-import { CLIProfileSetup } from './components/settings/CLIProfileSetup';
+import { SettingsPanel } from './components/settings/SettingsPanel';
 import { ModeAnalytics } from './components/analytics/ModeAnalytics';
 import { TemplateManager } from './components/templates/TemplateManager';
-import { ScheduleManager } from './components/schedules/ScheduleManager';
-import { WebhookManager } from './components/webhooks/WebhookManager';
-import { PostActionManager } from './components/post-actions/PostActionManager';
 
 export default function App() {
   const store = useAppStore();
@@ -84,7 +81,7 @@ export default function App() {
   const pipeline = store.selectedPipeline();
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-dvh overflow-hidden">
       {store.bootstrapError && (
         <div
           className="shrink-0 px-4 py-3 text-sm flex flex-wrap items-center gap-3"
@@ -117,12 +114,9 @@ export default function App() {
         </div>
       </div>
       {store.showAutoPlanner && <AutoPlannerDialog />}
-      {store.showSettings && <CLIProfileSetup />}
+      {store.showSettings && <SettingsPanel />}
       {store.showAnalytics && <ModeAnalytics />}
       {store.showTemplates && <TemplateManager />}
-      {store.showSchedules && <ScheduleManager />}
-      {store.showWebhooks && <WebhookManager />}
-      {store.showPostActions && <PostActionManager />}
     </div>
   );
 }
@@ -132,13 +126,19 @@ function EmptyState() {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="text-center max-w-lg animate-fade-in">
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-accent-primary/20 to-accent-secondary/20 flex items-center justify-center">
-          <svg className="w-10 h-10 text-accent-glow" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div
+          className="w-20 h-20 mx-auto mb-6 rounded-[1.4rem] flex items-center justify-center"
+          style={{
+            background: 'var(--color-active-bg)',
+            border: '1px solid var(--color-accent-border)',
+          }}
+        >
+          <svg className="w-10 h-10 theme-accent-text" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-display font-bold theme-text mb-2">{t.app.welcome}</h2>
-        <p className="theme-text-tertiary mb-8">{t.app.welcomeDesc}</p>
+        <h2 className="text-2xl font-display font-bold theme-text text-balance mb-2">{t.app.welcome}</h2>
+        <p className="theme-text-secondary text-sm text-pretty mb-8">{t.app.welcomeDesc}</p>
         <div className="flex gap-3 justify-center">
           <button onClick={() => setShowAutoPlanner(true)} className="btn-primary flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

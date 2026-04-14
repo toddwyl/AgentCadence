@@ -20,6 +20,15 @@ import type { Locale, Translations } from '../i18n';
 import { getTranslations } from '../i18n';
 
 export type Theme = 'dark' | 'light';
+export type SettingsTab =
+  | 'general'
+  | 'agents'
+  | 'planner'
+  | 'templates'
+  | 'insights'
+  | 'schedules'
+  | 'webhooks'
+  | 'callbacks';
 
 function readStoredTheme(): Theme {
   const v = localStorage.getItem('agentcadence-theme');
@@ -62,12 +71,14 @@ interface AppState {
   llmConfig: LLMConfig;
   notificationSettings: ExecutionNotificationSettings;
   showSettings: boolean;
+  settingsTab: SettingsTab;
   showAutoPlanner: boolean;
   showAnalytics: boolean;
   showTemplates: boolean;
   showSchedules: boolean;
   showWebhooks: boolean;
   showPostActions: boolean;
+  sidebarCollapsed: boolean;
   theme: Theme;
   locale: Locale;
   t: Translations;
@@ -123,12 +134,15 @@ interface AppState {
   toggleFlowchart: () => void;
   toggleMonitor: () => void;
   setShowSettings: (v: boolean) => void;
+  openSettingsTab: (tab: SettingsTab) => void;
+  setSettingsTab: (tab: SettingsTab) => void;
   setShowAutoPlanner: (v: boolean) => void;
   setShowAnalytics: (v: boolean) => void;
   setShowTemplates: (v: boolean) => void;
   setShowSchedules: (v: boolean) => void;
   setShowWebhooks: (v: boolean) => void;
   setShowPostActions: (v: boolean) => void;
+  toggleSidebarCollapsed: () => void;
   setTheme: (theme: Theme) => void;
   setLocale: (locale: Locale) => void;
   setTerminalPtySize: (size: { cols: number; rows: number } | null) => void;
@@ -159,12 +173,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     notifyOnCancelled: true, playSound: true,
   },
   showSettings: false,
+  settingsTab: 'general',
   showAutoPlanner: false,
   showAnalytics: false,
   showTemplates: false,
   showSchedules: false,
   showWebhooks: false,
   showPostActions: false,
+  sidebarCollapsed: false,
   theme: readStoredTheme(),
   locale: readStoredLocale(),
   t: getTranslations(readStoredLocale()),
@@ -485,12 +501,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleFlowchart: () => set((s) => ({ showFlowchart: !s.showFlowchart, showMonitor: false })),
   toggleMonitor: () => set((s) => ({ showMonitor: !s.showMonitor, showFlowchart: false })),
   setShowSettings: (v) => set({ showSettings: v }),
+  openSettingsTab: (tab) => set({
+    showSettings: true,
+    settingsTab: tab,
+    showSchedules: false,
+    showWebhooks: false,
+    showPostActions: false,
+  }),
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
   setShowAutoPlanner: (v) => set({ showAutoPlanner: v }),
   setShowAnalytics: (v) => set({ showAnalytics: v }),
   setShowTemplates: (v) => set({ showTemplates: v }),
   setShowSchedules: (v) => set({ showSchedules: v }),
   setShowWebhooks: (v) => set({ showWebhooks: v }),
   setShowPostActions: (v) => set({ showPostActions: v }),
+  toggleSidebarCollapsed: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setTheme: (theme) => {
     localStorage.setItem('agentcadence-theme', theme);
     document.documentElement.setAttribute('data-theme', theme);

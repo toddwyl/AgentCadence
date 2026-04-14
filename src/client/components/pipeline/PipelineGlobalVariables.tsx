@@ -30,14 +30,14 @@ export function PipelineGlobalVariables({ pipeline }: { pipeline: Pipeline }) {
   return (
     <div className="glass-panel p-4 space-y-3">
       <div>
-        <h3 className="text-xs font-semibold theme-text-secondary">{t.editor.globalVariables}</h3>
-        <p className="text-[10px] theme-text-muted mt-1">{t.editor.globalVariablesHint}</p>
+        <h3 className="text-sm font-semibold theme-text-secondary text-balance">{t.editor.globalVariables}</h3>
+        <p className="text-xs theme-text-muted mt-1 text-pretty">{t.editor.globalVariablesHint}</p>
       </div>
       <div className="space-y-2">
         {rows.map((row, i) => (
           <div key={i} className="flex gap-2 items-start">
             <input
-              className="input-field text-xs font-mono flex-1 min-w-0"
+              className="input-field text-sm font-mono flex-1 min-w-0"
               placeholder={t.editor.variableKey}
               value={row.key}
               onChange={(e) => {
@@ -46,7 +46,7 @@ export function PipelineGlobalVariables({ pipeline }: { pipeline: Pipeline }) {
               }}
             />
             <input
-              className="input-field text-xs flex-[2] min-w-0"
+              className="input-field text-sm flex-[2] min-w-0"
               placeholder={t.editor.variableValue}
               value={row.value}
               onChange={(e) => {
@@ -62,7 +62,7 @@ export function PipelineGlobalVariables({ pipeline }: { pipeline: Pipeline }) {
                 setRows(list);
                 save(list);
               }}
-              className="btn-ghost text-[10px] px-2 py-1.5 shrink-0 text-red-400/70 hover:text-red-400"
+              className="btn-ghost text-xs px-2 py-1.5 shrink-0 text-red-400/70 hover:text-red-400"
             >
               ×
             </button>
@@ -70,7 +70,7 @@ export function PipelineGlobalVariables({ pipeline }: { pipeline: Pipeline }) {
         ))}
       </div>
       <div className="flex flex-wrap gap-2 items-center">
-        <button type="button" onClick={() => setRows([...rows, { key: '', value: '' }])} className="btn-ghost text-xs">
+        <button type="button" onClick={() => setRows([...rows, { key: '', value: '' }])} className="btn-ghost text-sm">
           {t.editor.addVariable}
         </button>
         <button
@@ -78,7 +78,7 @@ export function PipelineGlobalVariables({ pipeline }: { pipeline: Pipeline }) {
           onClick={() => {
             save(rows);
           }}
-          className="btn-primary text-xs"
+          className="btn-primary text-sm"
         >
           {t.editor.saveVariables}
         </button>

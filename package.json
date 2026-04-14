@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "postinstall": "node scripts/fix-node-pty-spawn-helper.mjs",
-    "dev": "concurrently \"npm run dev:server\" \"wait-on tcp:3712 && npm run dev:client\"",
+    "dev": "DEV_PORT=${PORT:-3712}; node scripts/ensure-dev-port-free.mjs \"$DEV_PORT\" && concurrently --kill-others-on-fail \"PORT=$DEV_PORT npm run dev:server\" \"wait-on tcp:$DEV_PORT && VITE_BACKEND_PORT=$DEV_PORT npm run dev:client\"",
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
     "build": "npm run build:client && npm run build:server",

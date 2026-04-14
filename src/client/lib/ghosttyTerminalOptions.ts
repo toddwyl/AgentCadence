@@ -1,7 +1,8 @@
 import type { Ghostty, ITerminalOptions, ITheme } from 'ghostty-web';
+import type { Theme } from '../store/app-store';
 
 /** GitHub-dark style palette aligned with previous xterm theme */
-const executionTheme: ITheme = {
+const darkExecutionTheme: ITheme = {
   background: '#0d1117',
   foreground: '#c9d1d9',
   cursor: '#c9d1d9',
@@ -25,22 +26,46 @@ const executionTheme: ITheme = {
   brightWhite: '#f0f6fc',
 };
 
+const lightExecutionTheme: ITheme = {
+  background: '#f7f4ef',
+  foreground: '#2d2a26',
+  cursor: '#54493f',
+  cursorAccent: '#f7f4ef',
+  selectionBackground: '#e7e0d4',
+  black: '#4a4238',
+  red: '#dc2626',
+  green: '#15803d',
+  yellow: '#a16207',
+  blue: '#4f6da7',
+  magenta: '#7a5c86',
+  cyan: '#2f7b79',
+  white: '#efe8dd',
+  brightBlack: '#7b7469',
+  brightRed: '#ef4444',
+  brightGreen: '#16a34a',
+  brightYellow: '#ca8a04',
+  brightBlue: '#6c86b9',
+  brightMagenta: '#9a73a9',
+  brightCyan: '#479493',
+  brightWhite: '#ffffff',
+};
+
 /**
  * Options for the execution monitor terminal (read-only PTY mirror).
  * Mirrors OpenChamber’s getGhosttyTerminalOptions shape: Ghostty WASM instance + theme + FitAddon sizing.
  */
-export function getExecutionGhosttyOptions(ghostty: Ghostty): ITerminalOptions {
+export function getExecutionGhosttyOptions(ghostty: Ghostty, theme: Theme): ITerminalOptions {
   return {
     cursorBlink: false,
     cursorStyle: 'bar',
     fontSize: 12,
-    lineHeight: 1.15,
+    lineHeight: 1.2,
     fontFamily: "'JetBrains Mono', 'Menlo', 'Monaco', monospace",
     convertEol: true,
     disableStdin: true,
     allowTransparency: false,
     scrollback: 10_000,
     ghostty,
-    theme: executionTheme,
+    theme: theme === 'light' ? lightExecutionTheme : darkExecutionTheme,
   };
 }

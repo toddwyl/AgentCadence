@@ -1,8 +1,12 @@
 import { useAppStore } from '../../store/app-store';
 import type { Pipeline, PipelineRunRecord } from '@shared/types';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { ModalCloseButton } from '../ui/ModalCloseButton';
 
-export function ModeAnalytics() {
+export function ModeAnalytics({ embedded = false }: { embedded?: boolean }) {
   const { setShowAnalytics, pipelines, t } = useAppStore();
+  const close = () => setShowAnalytics(false);
+  useEscapeToClose(close, !embedded);
   const totalPipelines = pipelines.length;
   const totalRuns = pipelines.reduce((sum, p) => sum + p.runHistory.length, 0);
 
@@ -16,22 +20,13 @@ export function ModeAnalytics() {
   const modelUsage = computeModelUsage(pipelines);
   const retryStats = computeRetryStats(pipelines);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <h2 className="text-sm font-semibold theme-text">{t.analytics.title}</h2>
-            <p className="text-[10px] theme-text-muted">{t.analytics.subtitle}</p>
-          </div>
-          <button onClick={() => setShowAnalytics(false)} className="btn-ghost text-xs">{t.stepDetail.close}</button>
-        </div>
-        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+  const content = (
+    <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Summary cards */}
           <div className="grid grid-cols-4 gap-3">
             <StatCard label={t.analytics.totalPipelines} value={totalPipelines.toString()} />
-            <StatCard label={t.analytics.totalRuns} value={totalRuns.toString()} color="text-accent-glow" />
-            <StatCard label={t.analytics.avgDuration} value={formatDuration(avgDuration)} color="text-blue-400" />
+            <StatCard label={t.analytics.totalRuns} value={totalRuns.toString()} color="theme-accent-text" />
+            <StatCard label={t.analytics.avgDuration} value={formatDuration(avgDuration)} color="theme-text-secondary" />
             <StatCard label={t.analytics.successRate} value={`${successRate}%`} color={successRate >= 80 ? 'text-status-completed' : successRate >= 50 ? 'text-amber-400' : 'text-status-failed'} />
           </div>
 
@@ -102,6 +97,31 @@ export function ModeAnalytics() {
             </div>
           </div>
         </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold theme-text">{t.analytics.title}</h2>
+          <p className="text-xs theme-text-muted text-pretty">{t.analytics.subtitle}</p>
+        </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.analytics.title}</h2>
+            <p className="text-xs theme-text-muted text-pretty">{t.analytics.subtitle}</p>
+          </div>
+          <ModalCloseButton onClick={close} label={t.stepDetail.close} />
+        </div>
+        {content}
       </div>
     </div>
   );

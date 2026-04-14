@@ -3,6 +3,8 @@ import type { PipelineStep, ToolType, RetryRecord, PromptMentionItem, PromptMent
 import { TOOL_META, TOOL_TYPES } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { ModalCloseButton } from '../ui/ModalCloseButton';
 
 type FailureMode = 'stop' | 'skip' | 'retry';
 
@@ -40,6 +42,8 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   const slashPosRef = useRef<number>(-1);
 
   const pipeline = selectedPipeline();
+  const close = () => selectStep(null);
+  useEscapeToClose(close);
 
   useEffect(() => {
     setName(step.name); setPrompt(step.prompt); setTool(step.tool);
@@ -174,10 +178,10 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
   return (
     <div className="w-[420px] flex flex-col animate-slide-in theme-bg-1" style={{ borderLeft: '1px solid var(--color-border)' }}>
       <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <h3 className="text-sm font-semibold theme-text">{t.stepDetail.title}</h3>
+        <h3 className="text-base font-semibold theme-text text-balance">{t.stepDetail.title}</h3>
         <div className="flex items-center gap-2">
-          {isDirty && <button onClick={save} className="btn-primary text-xs py-1">{t.stepDetail.save}</button>}
-          <button onClick={() => selectStep(null)} className="btn-ghost text-xs">{t.stepDetail.close}</button>
+          {isDirty && <button onClick={save} className="btn-primary text-sm py-1.5">{t.stepDetail.save}</button>}
+          <ModalCloseButton onClick={close} label={t.stepDetail.close} />
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -199,10 +203,10 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
                   className={`p-2.5 rounded-lg text-center transition-all text-xs font-medium ${tool === tt ? 'theme-active-bg theme-text' : 'theme-text-tertiary theme-hover'}`}
                   style={{ border: tool === tt ? '1px solid rgba(99,102,241,0.3)' : '1px solid var(--color-border)' }}>
                   <div className="w-5 h-5 rounded mx-auto mb-1" style={{ backgroundColor: m.tintColor + '25' }}>
-                    <div className="w-full h-full flex items-center justify-center text-[10px]" style={{ color: m.tintColor }}>{tt === 'codex' ? '⌘' : tt === 'claude' ? '◉' : '▸'}</div>
+                    <div className="w-full h-full flex items-center justify-center text-xs" style={{ color: m.tintColor }}>{tt === 'codex' ? '⌘' : tt === 'claude' ? '◉' : '▸'}</div>
                   </div>
                   {m.displayName}
-                  {skillCount > 0 && <span className="ml-1 text-[9px] theme-text-muted">({skillCount})</span>}
+                  {skillCount > 0 && <span className="ml-1 text-xs theme-text-muted">({skillCount})</span>}
                 </button>
               );
             })}
@@ -214,14 +218,14 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs theme-text-tertiary">{t.stepDetail.prompt}</label>
             {allMentionsForTool.length > 0 && (
-              <span className="text-[10px] theme-text-muted">{t.stepDetail.promptHint}</span>
+              <span className="text-xs theme-text-muted">{t.stepDetail.promptHint}</span>
             )}
           </div>
           {pipeline && Object.keys(pipeline.globalVariables ?? {}).length > 0 && (
-            <p className="text-[10px] theme-text-muted mb-1.5 font-mono">
+            <p className="text-xs theme-text-muted mb-1.5 font-mono">
               {t.stepDetail.promptVarHint}{' '}
               {Object.keys(pipeline.globalVariables ?? {}).map((k) => (
-                <span key={k} className="text-accent-glow/90 mr-1.5">{`{{${k}}}`}</span>
+                <span key={k} className="mr-1.5 theme-accent-text">{`{{${k}}}`}</span>
               ))}
             </p>
           )}
@@ -245,7 +249,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
                 filteredMentions.map((item, i) => (
                   <div key={item.id}>
                     {(i === 0 || filteredMentions[i - 1].kind !== item.kind) && (
-                      <div className="px-2 py-1.5 text-[10px] font-semibold theme-text-muted uppercase tracking-wide theme-bg-0 sticky top-0">
+                      <div className="px-2 py-1.5 text-xs font-semibold theme-text-muted uppercase theme-bg-0 sticky top-0">
                         {item.kind === 'skill'
                           ? t.stepDetail.mentionSkills
                           : item.kind === 'command'
@@ -263,7 +267,7 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
                     >
                       <div className="flex items-center gap-2 flex-wrap">
                         <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                          className={`text-xs px-1.5 py-0.5 rounded font-medium ${
                             item.kind === 'skill'
                               ? 'bg-violet-500/15 text-violet-400'
                               : item.kind === 'command'
@@ -277,13 +281,20 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
                               ? t.stepDetail.badgeCommand
                               : t.stepDetail.badgeSubagent}
                         </span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${item.source === 'project' ? 'bg-blue-500/10 text-blue-500' : 'bg-green-500/10 text-green-500'}`}>
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded font-medium"
+                          style={
+                            item.source === 'project'
+                              ? { background: 'var(--color-active-bg)', color: 'var(--color-accent-text)' }
+                              : { background: 'rgba(34, 197, 94, 0.12)', color: '#15803d' }
+                          }
+                        >
                           {item.source === 'project' ? t.stepDetail.skillProject : t.stepDetail.skillUser}
                         </span>
                         <span className="text-xs font-medium theme-text font-mono">/{item.name}</span>
                       </div>
                       {item.description && (
-                        <p className="text-[10px] theme-text-muted mt-0.5 line-clamp-2">{item.description}</p>
+                        <p className="text-xs theme-text-muted mt-0.5 line-clamp-2 text-pretty">{item.description}</p>
                       )}
                     </div>
                   </div>
@@ -331,14 +342,14 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
             <input type="radio" name={`reviewMode-${step.id}`} checked={reviewMode === 'review'} onChange={() => setReviewMode('review')} className="accent-accent-primary" />
             {t.stepDetail.reviewWait}
           </label>
-          <p className="text-[11px] theme-text-muted leading-relaxed mt-1">{t.stepDetail.reviewModeHint}</p>
+          <p className="text-xs theme-text-muted leading-relaxed mt-1 text-pretty">{t.stepDetail.reviewModeHint}</p>
         </div>
 
         {retryRecords.length > 0 && (
           <div className="space-y-2 p-3 rounded-lg bg-amber-500/[0.04]" style={{ border: '1px solid rgba(245,158,11,0.2)' }}>
             <label className="block text-xs font-medium text-amber-500">{t.stepDetail.retryRecords}</label>
             {liveRetryMax && isExecuting && executingPipelineID === pipelineId && (
-              <p className="text-[10px] text-amber-400/90">
+              <p className="text-xs text-amber-400/90">
                 {t.execution.retryInfo
                   .replace('{current}', String(retryRecords.length))
                   .replace('{total}', String(liveRetryMax))}
@@ -350,9 +361,9 @@ export function StepDetailPanel({ step, pipelineId, allSteps }: { step: Pipeline
                   <span className="font-medium theme-text-secondary">
                     {t.stepDetail.retryAttempt.replace('{n}', String(record.attempt))}
                   </span>
-                  <span className="text-[10px] theme-text-muted">{new Date(record.timestamp).toLocaleTimeString()}</span>
+                  <span className="text-xs theme-text-muted">{new Date(record.timestamp).toLocaleTimeString()}</span>
                 </div>
-                <p className="text-red-400 font-mono text-[11px] break-all">{record.error}</p>
+                <p className="text-red-400 font-mono text-xs break-all">{record.error}</p>
               </div>
             ))}
           </div>

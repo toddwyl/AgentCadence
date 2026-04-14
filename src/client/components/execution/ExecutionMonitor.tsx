@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Pipeline, PipelineRunRecord, StepStatus } from '@shared/types';
+import type { AgentFeedItem, Pipeline, PipelineRunRecord, StepRunRecord, StepStatus } from '@shared/types';
 import { safeToolMeta } from '@shared/types';
 import { useAppStore } from '../../store/app-store';
 import { AgentActivityFeed } from './AgentActivityFeed';
@@ -9,15 +9,21 @@ type OutputRef =
   | { kind: 'live'; stepId: string }
   | { kind: 'record'; runId: string; stepId: string };
 
+type SelectedHistoryPayload = {
+  stepRun: StepRunRecord;
+  rawOutput: string | null;
+  activityItems: AgentFeedItem[] | null;
+};
+
 function execMonitorTabClass(isActive: boolean): string {
   return `px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-    isActive ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
+    isActive ? 'theme-active-bg theme-text' : 'theme-text-muted theme-hover'
   }`;
 }
 
 function outputSubPanelTabClass(isActive: boolean): string {
-  return `px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-    isActive ? 'theme-active-bg text-accent-glow' : 'theme-text-muted theme-hover'
+  return `px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+    isActive ? 'theme-active-bg theme-text' : 'theme-text-muted theme-hover'
   }`;
 }
 
@@ -34,6 +40,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
     executionError,
     pendingReview,
     respondToReview,
+    theme,
     t,
   } = useAppStore();
 
@@ -41,6 +48,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
   const [tab, setTab] = useState<'running' | 'history'>(() => (live ? 'running' : 'history'));
   const [outputRef, setOutputRef] = useState<OutputRef | null>(null);
   const [outputPanel, setOutputPanel] = useState<'activity' | 'raw'>('activity');
+  const [manualLiveStepId, setManualLiveStepId] = useState<string | null>(null);
 
   const sortedRuns = useMemo(
     () =>
@@ -57,53 +65,56 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
       setTab('running');
       setOutputRef(null);
       setOutputPanel('activity');
+      setManualLiveStepId(null);
     }
   }, [live]);
 
   // Auto-select first running step so streaming output is visible immediately
   useEffect(() => {
     if (!live) return;
-    if (outputRef?.kind === 'live') return;
+    if (manualLiveStepId) return;
     const runningStep = allSteps.find((s) => stepStatuses[s.id] === 'running');
-    if (runningStep) {
+    if (runningStep && !(outputRef?.kind === 'live' && outputRef.stepId === runningStep.id)) {
       setOutputRef({ kind: 'live', stepId: runningStep.id });
-      selectStep(runningStep.id);
     }
-  }, [allSteps, live, outputRef, selectStep, stepStatuses]);
+  }, [allSteps, live, manualLiveStepId, outputRef, stepStatuses]);
 
   // When current step completes, auto-switch to next running step
   useEffect(() => {
     if (!live || !outputRef || outputRef.kind !== 'live') return;
+    if (manualLiveStepId) return;
     const currentStatus = stepStatuses[outputRef.stepId];
     if (currentStatus === 'completed' || currentStatus === 'failed' || currentStatus === 'skipped') {
       const nextRunning = allSteps.find((s) => stepStatuses[s.id] === 'running');
-      if (nextRunning) {
+      if (nextRunning && nextRunning.id !== outputRef.stepId) {
         setOutputRef({ kind: 'live', stepId: nextRunning.id });
-        selectStep(nextRunning.id);
       }
     }
-  }, [allSteps, live, outputRef, selectStep, stepStatuses]);
+  }, [allSteps, live, manualLiveStepId, outputRef, stepStatuses]);
+
+  useEffect(() => {
+    if (!live || !manualLiveStepId) return;
+    if (stepStatuses[manualLiveStepId] === 'running') return;
+    const stillViewingManual = outputRef?.kind === 'live' && outputRef.stepId === manualLiveStepId;
+    if (!stillViewingManual) setManualLiveStepId(null);
+  }, [live, manualLiveStepId, outputRef, stepStatuses]);
 
   const resolveOutput = (): string | null => {
     if (!outputRef) return null;
     if (outputRef.kind === 'live') return stepOutputs[outputRef.stepId] ?? null;
-    const run = pipeline.runHistory.find((r) => r.id === outputRef.runId);
-    if (!run) return null;
-    for (const sr of run.stageRuns) {
-      for (const st of sr.stepRuns) {
-        if (st.stepID === outputRef.stepId) return st.output ?? null;
-      }
-    }
-    return null;
+    const payload = resolveHistoryPayload(pipeline, outputRef.runId, outputRef.stepId);
+    return payload?.rawOutput ?? null;
   };
 
   const handleLiveStepClick = (stepId: string) => {
     setOutputRef({ kind: 'live', stepId });
+    setManualLiveStepId(stepId);
     selectStep(stepId);
   };
 
   const handleRecordStepClick = (runId: string, stepId: string) => {
     setOutputRef({ kind: 'record', runId, stepId });
+    setManualLiveStepId(null);
     selectStep(stepId);
   };
   const completedCount = allSteps.filter((s) => stepStatuses[s.id] === 'completed').length;
@@ -114,12 +125,19 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
   const progress = allSteps.length > 0 ? doneCount / allSteps.length : 0;
 
   const selectedOutput = resolveOutput();
+  const selectedHistory = outputRef?.kind === 'record'
+    ? resolveHistoryPayload(pipeline, outputRef.runId, outputRef.stepId)
+    : null;
+  const headerStep = outputRef ? allSteps.find((s) => s.id === outputRef.stepId) : null;
   const headerStepName = outputRef
     ? allSteps.find((s) => s.id === outputRef.stepId)?.name
     : null;
 
   const selectedStepId = outputRef?.stepId ?? null;
-  const activityItems = selectedStepId ? stepAgentFeeds[selectedStepId] ?? [] : [];
+  const activityItems = outputRef?.kind === 'record'
+    ? selectedHistory?.activityItems ?? []
+    : selectedStepId ? stepAgentFeeds[selectedStepId] ?? [] : [];
+  const hasStructuredHistory = outputRef?.kind === 'record' ? selectedHistory?.activityItems != null : true;
   const reviewForStep =
     pendingReview?.pipelineId === pipeline.id &&
     selectedStepId != null &&
@@ -167,11 +185,14 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                   <>
                     <div className="h-1.5 theme-bg-0 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-accent-primary to-accent-secondary"
-                        style={{ width: `${progress * 100}%` }}
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${progress * 100}%`,
+                          background: 'var(--color-accent-solid)',
+                        }}
                       />
                     </div>
-                    <div className="flex gap-3 mt-2 text-[10px]">
+                    <div className="flex gap-3 mt-2 text-xs">
                       {runningCount > 0 && (
                         <span className="flex items-center gap-1 text-status-running">
                           <span className="status-dot bg-status-running animate-pulse" />
@@ -199,7 +220,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                   (pipeline.stages ?? []).map((stage) => (
                     <div key={stage.id}>
                       <div
-                        className="px-4 py-2 text-[10px] font-medium theme-text-muted uppercase tracking-wider theme-bg-0"
+                        className="px-4 py-2 text-xs font-medium theme-text-muted theme-bg-0"
                         style={{ opacity: 0.7 }}
                       >
                         {stage.name}
@@ -221,7 +242,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                               <div className="text-xs theme-text-secondary truncate">{step.name}</div>
                               {stepRetryMaxAttempts[step.id] &&
                                 (stepRetryRecords[step.id]?.length ?? 0) > 0 && (
-                                  <div className="text-[9px] text-amber-500 mt-0.5 truncate">
+                                  <div className="text-xs text-amber-500 mt-0.5 truncate">
                                     {t.execution.retryInfo
                                       .replace('{current}', String(stepRetryRecords[step.id]?.length ?? 0))
                                       .replace('{total}', String(stepRetryMaxAttempts[step.id]))}
@@ -229,7 +250,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                                 )}
                             </div>
                             <span
-                              className="text-[9px] px-1.5 py-0.5 rounded"
+                              className="text-xs px-1.5 py-0.5 rounded"
                               style={{ backgroundColor: meta.tintColor + '12', color: meta.tintColor }}
                             >
                               {meta.displayName}
@@ -265,17 +286,17 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                 sortedRuns.map((run) => (
                   <div key={run.id} className="glass-panel rounded-xl overflow-hidden">
                     <div className="px-3 py-2 flex flex-wrap items-center gap-2" style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <span className="text-[10px] font-medium theme-text-secondary">{formatRunTime(run.startedAt)}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${runStatusClass(run.status)}`}>
+                      <span className="text-xs font-medium theme-text-secondary">{formatRunTime(run.startedAt)}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${runStatusClass(run.status)}`}>
                         {run.status}
                       </span>
                       {run.durationMs != null && (
-                        <span className="text-[10px] theme-text-muted">
+                        <span className="text-xs theme-text-muted">
                           {t.execution.duration}: {formatDuration(run.durationMs)}
                         </span>
                       )}
                       {run.errorMessage && (
-                        <span className="text-[10px] text-red-400/80 truncate max-w-full">{run.errorMessage}</span>
+                        <span className="text-xs text-red-400/80 truncate max-w-full">{run.errorMessage}</span>
                       )}
                     </div>
                     <RunRecordStepList
@@ -357,7 +378,7 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
               {headerStepName || t.execution.selectStep}
             </span>
             {outputRef?.kind === 'record' && (
-              <span className="text-[10px] theme-text-muted">{t.execution.outputFromHistory}</span>
+              <span className="text-xs theme-text-muted">{t.execution.outputFromHistory}</span>
             )}
             <div className="flex gap-1 ml-auto">
               <button
@@ -381,7 +402,12 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
               key={outputRef ? `${outputRef.kind}-${outputRef.stepId}-act` : 'act-none'}
               items={activityItems}
               isLive={live && outputRef?.kind === 'live'}
-              noActivityText={t.execution.noActivity}
+              initialPrompt={headerStep?.prompt ?? ''}
+              noActivityText={
+                outputRef?.kind === 'record' && !hasStructuredHistory
+                  ? t.execution.noSavedActivity
+                  : t.execution.noActivity
+              }
               labels={{
                 thinking: t.execution.labelThinking,
                 tool: t.execution.labelTool,
@@ -393,16 +419,24 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
                 toolResult: t.execution.toolResult,
                 toolGitDiff: t.execution.toolGitDiff,
                 todoTitle: t.execution.todoTitle,
+                transcriptAll: t.execution.transcriptAll,
+                transcriptChanges: t.execution.transcriptChanges,
+                changedFilesTitle: t.execution.changedFilesTitle,
+                filesChangedCount: t.execution.filesChangedCount,
+                showMore: t.execution.showMore,
+                showLess: t.execution.showLess,
+                omittedLines: t.execution.omittedLines,
               }}
             />
           ) : (
             <TerminalPane
-              key={outputRef ? `${outputRef.kind}-${outputRef.stepId}-raw` : 'terminal-none'}
+              key={outputRef ? `${outputRef.kind}-${outputRef.stepId}-${theme}-raw` : `terminal-${theme}-none`}
               output={selectedOutput}
               noOutputText={
-                outputRef?.kind === 'record' && !selectedOutput ? t.execution.noSavedOutput : t.execution.noOutput
+                outputRef?.kind === 'record' && !selectedOutput ? t.execution.noSavedRawLog : t.execution.noOutput
               }
               isLive={live && outputRef?.kind === 'live'}
+              theme={theme}
               suppressReviewBanner
               pendingReview={pendingReview?.pipelineId === pipeline.id ? pendingReview : null}
               respondToReview={respondToReview}
@@ -412,6 +446,30 @@ export function ExecutionMonitor({ pipeline }: { pipeline: Pipeline }) {
       </div>
     </div>
   );
+}
+
+function findRunRecord(pipeline: Pipeline, runId: string): PipelineRunRecord | undefined {
+  return pipeline.runHistory.find((run) => run.id === runId);
+}
+
+function findRunStepRecord(run: PipelineRunRecord | undefined, stepId: string): StepRunRecord | undefined {
+  if (!run) return undefined;
+  for (const stageRun of run.stageRuns) {
+    const stepRun = stageRun.stepRuns.find((candidate) => candidate.stepID === stepId);
+    if (stepRun) return stepRun;
+  }
+  return undefined;
+}
+
+function resolveHistoryPayload(pipeline: Pipeline, runId: string, stepId: string): SelectedHistoryPayload | null {
+  const run = findRunRecord(pipeline, runId);
+  const stepRun = findRunStepRecord(run, stepId);
+  if (!stepRun) return null;
+  return {
+    stepRun,
+    rawOutput: stepRun.rawOutput?.length ? stepRun.rawOutput : null,
+    activityItems: stepRun.agentFeed ?? null,
+  };
 }
 
 function RunRecordStepList({
@@ -430,7 +488,7 @@ function RunRecordStepList({
       {run.stageRuns.map((sr) => (
         <div key={sr.id}>
           <div
-            className="px-3 py-1.5 text-[10px] font-medium theme-text-muted uppercase tracking-wider theme-bg-0"
+            className="px-3 py-1.5 text-xs font-medium theme-text-muted uppercase theme-bg-0"
             style={{ opacity: 0.7 }}
           >
             {sr.stageName}
@@ -455,7 +513,7 @@ function RunRecordStepList({
                   <div className="text-xs theme-text-secondary truncate">{st.stepName}</div>
                 </div>
                 <span
-                  className="text-[9px] px-1.5 py-0.5 rounded"
+                  className="text-xs px-1.5 py-0.5 rounded"
                   style={{ backgroundColor: meta.tintColor + '12', color: meta.tintColor }}
                 >
                   {meta.displayName}

@@ -360,7 +360,7 @@ export class CursorStreamJsonPrettifier {
     }
     this.lastThinkingSnapshot = text;
     if (!delta) return;
-    this.ui({ kind: 'thinking_delta', text: delta });
+    this.ui({ kind: 'reasoning_delta', text: delta });
     const lines = delta.split('\n');
     for (const ln of lines) {
       if (ln.trim()) emit(`${DIM}⋯ ${ln}${RST}\n`);
@@ -435,7 +435,28 @@ export class CursorStreamJsonPrettifier {
           if (diff) toolPayload.gitDiffUnified = diff;
         }
       }
-      this.ui(toolPayload);
+      if (phase === 'started' || phase === 'update') {
+        this.ui({
+          kind: 'tool_call',
+          phase,
+          summary: parsed.summary,
+          toolName: parsed.toolName,
+          detail: parsed.detail,
+          callId,
+          ...(toolPayload.ok !== undefined ? { ok: toolPayload.ok } : {}),
+        });
+      } else {
+        this.ui({
+          kind: 'tool_result',
+          summary: parsed.summary,
+          toolName: parsed.toolName,
+          detail: parsed.detail,
+          callId,
+          resultPreview: toolPayload.resultPreview,
+          gitDiffUnified: toolPayload.gitDiffUnified,
+          ...(toolPayload.ok !== undefined ? { ok: toolPayload.ok } : {}),
+        });
+      }
       const snapshot = parseTodoSnapshotFromToolCall(obj, parsed.toolName);
       if (snapshot) this.ui({ kind: 'todo_snapshot', items: snapshot });
       if (sub === 'started') {

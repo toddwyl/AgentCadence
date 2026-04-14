@@ -43,6 +43,15 @@ app.get('*', (_req, res) => {
 
 const server = createServer(app);
 initWebSocket(server);
+server.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(
+      `\n[AgentCadence] Port ${PORT} is already in use. Stop the existing process or start with PORT=<free-port>.\n`
+    );
+    process.exit(1);
+  }
+  throw error;
+});
 
 void (async () => {
   try {

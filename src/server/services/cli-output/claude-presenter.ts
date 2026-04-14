@@ -25,6 +25,34 @@ function toolUseDetail(block: Record<string, unknown>): string | undefined {
   return undefined;
 }
 
+function toolResultPreview(block: Record<string, unknown>): string | undefined {
+  const directText = typeof block.text === 'string' ? block.text.trim() : '';
+  if (directText) return directText.length > 500 ? `${directText.slice(0, 499)}…` : directText;
+  const content = block.content;
+  if (Array.isArray(content)) {
+    const pieces = content
+      .filter((part): part is Record<string, unknown> => !!part && typeof part === 'object')
+      .map((part) => (typeof part.text === 'string' ? part.text.trim() : ''))
+      .filter(Boolean);
+    const joined = pieces.join('\n').trim();
+    if (joined) return joined.length > 500 ? `${joined.slice(0, 499)}…` : joined;
+  }
+  return undefined;
+}
+
+function findRecentToolUse(
+  recentToolUses: Array<{ callId?: string; toolName: string; detail?: string; summary: string }>,
+  callId: string | undefined
+) {
+  if (callId) {
+    for (let i = recentToolUses.length - 1; i >= 0; i--) {
+      const entry = recentToolUses[i];
+      if (entry.callId === callId) return entry;
+    }
+  }
+  return recentToolUses[recentToolUses.length - 1];
+}
+
 class ClaudeStreamState {
   private lastTextChunk = '';
   private lastTextSnapshot = '';
@@ -59,7 +87,7 @@ class ClaudeStreamState {
     }
     this.lastThinkingSnapshot = text;
     if (!delta) return;
-    this.ui({ kind: 'thinking_delta', text: delta });
+    this.ui({ kind: 'reasoning_delta', text: delta });
     for (const ln of delta.split('\n')) {
       if (ln.trim()) emit(`${DIM}⋯ ${ln}${RST}\n`);
     }
@@ -71,7 +99,8 @@ function emitAssistantMessage(
   emit: TerminalEmit,
   state: ClaudeStreamState,
   ui: (e: AgentStreamUiEvent) => void,
-  seenToolUseIds: Set<string>
+  seenToolUseIds: Set<string>,
+  recentToolUses: Array<{ callId?: string; toolName: string; detail?: string; summary: string }>
 ): void {
   const content = msg?.content;
   if (!Array.isArray(content)) return;
@@ -90,13 +119,14 @@ function emitAssistantMessage(
       emit(`${CYN}▸ ${name}${RST}\n`);
       const summary = detail ? `${name} · ${detail}` : name;
       ui({
-        kind: 'tool',
+        kind: 'tool_call',
         phase: 'started',
         summary,
         toolName: name,
         detail,
         callId: id,
       });
+      recentToolUses.push({ callId: id, toolName: name, detail, summary });
       continue;
     }
     if (ty === 'thinking' || ty === 'reasoning') {
@@ -107,9 +137,27 @@ function emitAssistantMessage(
       if (t) state.emitThinkingDelta(t, emit);
       continue;
     }
-    // tool_result blocks carry tool output but stream-json here does not correlate them to tool_use ids
-    // or completion phases reliably; emitting synthetic tool completed events would duplicate or mis-order
-    // the feed versus dedicated tool lifecycle lines, so we only skip text emission for tool_result.
+    if (ty === 'tool_result') {
+      const callId =
+        typeof b.tool_use_id === 'string'
+          ? b.tool_use_id
+          : typeof b.id === 'string'
+            ? b.id
+            : undefined;
+      const hint = findRecentToolUse(recentToolUses, callId);
+      if (hint) {
+        ui({
+          kind: 'tool_result',
+          summary: hint.summary,
+          toolName: hint.toolName,
+          detail: hint.detail,
+          callId,
+          resultPreview: toolResultPreview(b),
+          ...(b.is_error === true ? { ok: false } : {}),
+        });
+      }
+      continue;
+    }
     if (typeof b.text === 'string' && ty !== 'tool_result' && ty !== 'thinking' && ty !== 'reasoning') {
       state.emitTextDelta(b.text, emit);
     }
@@ -120,6 +168,7 @@ class ClaudeStreamJsonPrettifier {
   private lines = new JsonlLineBuffer();
   private state: ClaudeStreamState;
   private seenToolUseIds = new Set<string>();
+  private recentToolUses: Array<{ callId?: string; toolName: string; detail?: string; summary: string }> = [];
 
   constructor(private readonly onUiEvent?: (e: AgentStreamUiEvent) => void) {
     this.state = new ClaudeStreamState((e) => this.onUiEvent?.(e));
@@ -169,7 +218,14 @@ class ClaudeStreamJsonPrettifier {
     }
     if (t === 'assistant') {
       const msg = obj.message as Record<string, unknown> | undefined;
-      emitAssistantMessage(msg, emit, this.state, (e) => this.ui(e), this.seenToolUseIds);
+      emitAssistantMessage(
+        msg,
+        emit,
+        this.state,
+        (e) => this.ui(e),
+        this.seenToolUseIds,
+        this.recentToolUses
+      );
       return;
     }
     if (t === 'stream_event') {
@@ -185,7 +241,11 @@ class ClaudeStreamJsonPrettifier {
       const ms = typeof obj.duration_ms === 'number' ? obj.duration_ms : null;
       const sub = typeof obj.subtype === 'string' ? obj.subtype : '';
       const ok = !err && sub !== 'error';
-      this.ui({ kind: 'turn_result', ok, durationMs: ms });
+      const error =
+        ok || typeof obj.error !== 'string'
+          ? undefined
+          : obj.error;
+      this.ui({ kind: 'turn_result', ok, durationMs: ms, error });
       emit(`${YLW}— ${ok ? 'completed' : 'failed'}${ms != null ? ` · ${ms}ms` : ''}${RST}\n`);
       return;
     }

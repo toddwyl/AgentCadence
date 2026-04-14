@@ -2,10 +2,20 @@ import { useState, useEffect } from 'react';
 import type { PostAction, PostActionBinding, PostActionRun, Pipeline } from '@shared/types';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../store/app-store';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { ModalCloseButton } from '../ui/ModalCloseButton';
 
-export function PostActionManager() {
+export function PostActionManager({
+  embedded = false,
+  onClose,
+}: {
+  embedded?: boolean;
+  onClose?: () => void;
+} = {}) {
   const { t, pipelines } = useAppStore();
   const setShowPostActions = useAppStore((s) => s.setShowPostActions);
+  const close = onClose ?? (() => setShowPostActions(false));
+  useEscapeToClose(close, !embedded);
 
   const [actions, setActions] = useState<(PostAction & { bindings_count?: number })[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -138,22 +148,8 @@ export function PostActionManager() {
     api.getPostActionBindings(selectedId).then(setBindings);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <h2 className="text-sm font-semibold theme-text">{t.postActions.title}</h2>
-            <p className="text-[10px] theme-text-muted">{t.postActions.subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={openCreate} className="btn-ghost text-xs text-accent-glow">{t.postActions.create}</button>
-            <button onClick={() => setShowPostActions(false)} className="btn-ghost text-xs">{t.stepDetail.close}</button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto">
+  const content = (
+    <div className="flex-1 overflow-auto">
           {/* Form */}
           {showForm && (
             <div className="mx-6 my-4 p-4 glass-panel space-y-3 animate-fade-in">
@@ -229,7 +225,7 @@ export function PostActionManager() {
               {actions.map((a) => (
                 <div key={a.id} onClick={() => setSelectedId(selectedId === a.id ? null : a.id)}
                   className={`p-3 rounded-lg cursor-pointer transition-all ${selectedId === a.id ? 'theme-active-bg' : 'theme-hover'}`}
-                  style={{ border: selectedId === a.id ? '1px solid rgba(99,102,241,0.2)' : '1px solid var(--color-border)' }}>
+                  style={{ border: selectedId === a.id ? '1px solid var(--color-accent-border)' : '1px solid var(--color-border)' }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <button onClick={(e) => { e.stopPropagation(); handleToggle(a.id); }}
@@ -239,7 +235,12 @@ export function PostActionManager() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium theme-text truncate">{a.name}</span>
-                          <span className="text-[10px] px-1.5 py-px rounded bg-blue-500/10 text-blue-400">{a.method}</span>
+                          <span
+                            className="text-[10px] px-1.5 py-px rounded"
+                            style={{ background: 'var(--color-active-bg)', color: 'var(--color-accent-text)' }}
+                          >
+                            {a.method}
+                          </span>
                           {a.bindings_count !== undefined && (
                             <span className="text-[10px] theme-text-muted">{a.bindings_count} {t.postActions.bindingsCount}</span>
                           )}
@@ -264,7 +265,7 @@ export function PostActionManager() {
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-[10px] theme-text-muted">{t.postActions.bindings}</p>
-                          <button onClick={(e) => { e.stopPropagation(); setShowBindingForm(!showBindingForm); }} className="btn-ghost text-[10px] text-accent-glow">{t.postActions.addBinding}</button>
+                          <button onClick={(e) => { e.stopPropagation(); setShowBindingForm(!showBindingForm); }} className="btn-ghost text-[10px] theme-accent-text">{t.postActions.addBinding}</button>
                         </div>
                         {showBindingForm && (
                           <div className="p-2 rounded glass-panel space-y-2 mb-2 animate-fade-in" onClick={(e) => e.stopPropagation()}>
@@ -331,6 +332,39 @@ export function PostActionManager() {
             </div>
           )}
         </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.postActions.title}</h2>
+            <p className="text-[10px] theme-text-muted">{t.postActions.subtitle}</p>
+          </div>
+          <div>
+            <button onClick={openCreate} className="btn-ghost text-xs theme-accent-text">{t.postActions.create}</button>
+          </div>
+        </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.postActions.title}</h2>
+            <p className="text-[10px] theme-text-muted">{t.postActions.subtitle}</p>
+          </div>
+          <ModalCloseButton onClick={close} label={t.stepDetail.close} />
+        </div>
+        <div className="px-6 pt-4 shrink-0">
+          <button onClick={openCreate} className="btn-ghost text-xs theme-accent-text">{t.postActions.create}</button>
+        </div>
+        {content}
       </div>
     </div>
   );

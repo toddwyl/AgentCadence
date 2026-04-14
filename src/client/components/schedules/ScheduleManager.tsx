@@ -2,10 +2,20 @@ import { useState, useEffect } from 'react';
 import type { Schedule, ScheduleRun, Pipeline } from '@shared/types';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../store/app-store';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { ModalCloseButton } from '../ui/ModalCloseButton';
 
-export function ScheduleManager() {
+export function ScheduleManager({
+  embedded = false,
+  onClose,
+}: {
+  embedded?: boolean;
+  onClose?: () => void;
+} = {}) {
   const { t, pipelines } = useAppStore();
   const setShowSchedules = useAppStore((s) => s.setShowSchedules);
+  const close = onClose ?? (() => setShowSchedules(false));
+  useEscapeToClose(close, !embedded);
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -84,28 +94,14 @@ export function ScheduleManager() {
 
   const statusColor = (status: string) => {
     switch (status) {
-      case 'running': return 'text-blue-400';
+      case 'running': return 'text-status-running';
       case 'error': return 'text-red-400';
       default: return 'theme-text-muted';
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <h2 className="text-sm font-semibold theme-text">{t.schedules.title}</h2>
-            <p className="text-[10px] theme-text-muted">{t.schedules.subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={openCreate} className="btn-ghost text-xs text-accent-glow">{t.schedules.create}</button>
-            <button onClick={() => setShowSchedules(false)} className="btn-ghost text-xs">{t.stepDetail.close}</button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto">
+  const content = (
+    <div className="flex-1 overflow-auto">
           {/* Form */}
           {showForm && (
             <div className="mx-6 my-4 p-4 glass-panel space-y-3 animate-fade-in">
@@ -155,7 +151,7 @@ export function ScheduleManager() {
               {schedules.map((s) => (
                 <div key={s.id} onClick={() => setSelectedId(selectedId === s.id ? null : s.id)}
                   className={`p-3 rounded-lg cursor-pointer transition-all ${selectedId === s.id ? 'theme-active-bg' : 'theme-hover'}`}
-                  style={{ border: selectedId === s.id ? '1px solid rgba(99,102,241,0.2)' : '1px solid var(--color-border)' }}>
+                  style={{ border: selectedId === s.id ? '1px solid var(--color-accent-border)' : '1px solid var(--color-border)' }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <button onClick={(e) => { e.stopPropagation(); handleToggle(s.id); }}
@@ -207,6 +203,39 @@ export function ScheduleManager() {
             </div>
           )}
         </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.schedules.title}</h2>
+            <p className="text-[10px] theme-text-muted">{t.schedules.subtitle}</p>
+          </div>
+          <div>
+            <button onClick={openCreate} className="btn-ghost text-xs theme-accent-text">{t.schedules.create}</button>
+          </div>
+        </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-4xl glass-panel-strong shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.schedules.title}</h2>
+            <p className="text-[10px] theme-text-muted">{t.schedules.subtitle}</p>
+          </div>
+          <ModalCloseButton onClick={close} label={t.stepDetail.close} />
+        </div>
+        <div className="px-6 pt-4 shrink-0">
+          <button onClick={openCreate} className="btn-ghost text-xs theme-accent-text">{t.schedules.create}</button>
+        </div>
+        {content}
       </div>
     </div>
   );

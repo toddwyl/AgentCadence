@@ -3,8 +3,10 @@ import type { PipelineTemplate } from '@shared/types';
 import { api } from '../../lib/api';
 import { pickWorkingDirectory } from '../../lib/pick-folder';
 import { useAppStore } from '../../store/app-store';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { ModalCloseButton } from '../ui/ModalCloseButton';
 
-export function TemplateManager() {
+export function TemplateManager({ embedded = false }: { embedded?: boolean }) {
   const { t, pipelines, refreshPipelines, selectPipeline } = useAppStore();
   const [templates, setTemplates] = useState<PipelineTemplate[]>([]);
   const [showSaveForm, setShowSaveForm] = useState(false);
@@ -16,6 +18,8 @@ export function TemplateManager() {
   const [importMd, setImportMd] = useState('');
   const [useWorkDir, setUseWorkDir] = useState('');
   const setShowTemplates = useAppStore((s) => s.setShowTemplates);
+  const close = () => setShowTemplates(false);
+  useEscapeToClose(close, !embedded);
 
   const reload = async () => {
     const data = await api.getTemplates();
@@ -61,27 +65,14 @@ export function TemplateManager() {
     await refreshPipelines();
     selectPipeline(pipeline.id);
     setShowUseForm(null); setUseWorkDir('');
-    setShowTemplates(false);
+    if (!embedded) close();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-3xl glass-panel-strong shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <h2 className="text-sm font-semibold theme-text">{t.templates.title}</h2>
-            <p className="text-[10px] theme-text-muted">{t.templates.subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowImportForm(true)} className="btn-ghost text-xs">{t.templates.import}</button>
-            <button onClick={() => setShowSaveForm(true)} className="btn-ghost text-xs text-accent-glow">{t.templates.saveAsTemplate}</button>
-            <button onClick={() => setShowTemplates(false)} className="btn-ghost text-xs">{t.stepDetail.close}</button>
-          </div>
-        </div>
-        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+  const content = (
+    <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
           {/* Save form */}
           {showSaveForm && (
-            <div className="p-4 rounded-lg space-y-3 animate-fade-in" style={{ border: '1px solid rgba(99,102,241,0.2)' }}>
+            <div className="p-4 rounded-lg space-y-3 animate-fade-in" style={{ border: '1px solid var(--color-accent-border)' }}>
               <select className="input-field text-sm w-full" value={savePipelineId} onChange={(e) => setSavePipelineId(e.target.value)}>
                 <option value="">-- Select Pipeline --</option>
                 {pipelines.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -97,7 +88,7 @@ export function TemplateManager() {
 
           {/* Import form */}
           {showImportForm && (
-            <div className="p-4 rounded-lg space-y-3 animate-fade-in" style={{ border: '1px solid rgba(99,102,241,0.2)' }}>
+            <div className="p-4 rounded-lg space-y-3 animate-fade-in" style={{ border: '1px solid var(--color-accent-border)' }}>
               <label className="block text-xs font-medium theme-text-secondary">{t.templates.importTitle}</label>
               <textarea className="input-field text-sm min-h-[120px] resize-y font-mono" placeholder={t.templates.importPlaceholder}
                 value={importMd} onChange={(e) => setImportMd(e.target.value)} />
@@ -144,6 +135,41 @@ export function TemplateManager() {
             </div>
           ))}
         </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.templates.title}</h2>
+            <p className="text-xs theme-text-muted text-pretty">{t.templates.subtitle}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowImportForm(true)} className="btn-ghost text-xs">{t.templates.import}</button>
+            <button onClick={() => setShowSaveForm(true)} className="btn-ghost text-xs theme-accent-text">{t.templates.saveAsTemplate}</button>
+          </div>
+        </div>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center theme-backdrop backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-3xl glass-panel-strong shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div>
+            <h2 className="text-sm font-semibold theme-text">{t.templates.title}</h2>
+            <p className="text-xs theme-text-muted text-pretty">{t.templates.subtitle}</p>
+          </div>
+          <ModalCloseButton onClick={close} label={t.stepDetail.close} />
+        </div>
+        <div className="px-6 pt-4 flex flex-wrap gap-2">
+          <button onClick={() => setShowImportForm(true)} className="btn-ghost text-xs">{t.templates.import}</button>
+          <button onClick={() => setShowSaveForm(true)} className="btn-ghost text-xs theme-accent-text">{t.templates.saveAsTemplate}</button>
+        </div>
+        {content}
       </div>
     </div>
   );

@@ -74,17 +74,18 @@ export function OutputRenderer({ output, noOutputText }: OutputRendererProps) {
     <div className="flex-1 flex flex-col min-h-0">
       {/* Toolbar */}
       <div className="flex items-center gap-1 px-5 py-1.5 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        <span className="text-[10px] theme-text-muted mr-1.5">View:</span>
+        <span className="text-xs theme-text-tertiary mr-1.5">View:</span>
         {(['auto', 'raw', 'markdown'] as const).map((mode) => (
           <button
             key={mode}
             type="button"
             onClick={() => setViewMode(mode)}
-            className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+            className={`px-2 py-0.5 rounded text-xs transition-colors ${
               viewMode === mode
-                ? 'theme-active-bg text-accent-glow'
+                ? 'theme-active-bg theme-text'
                 : 'theme-text-muted theme-hover'
             }`}
+            style={viewMode === mode ? { boxShadow: 'inset 0 0 0 1px var(--color-accent-border)' } : undefined}
           >
             {mode === 'auto' ? 'Auto' : mode === 'raw' ? 'Raw' : 'Markdown'}
           </button>
@@ -96,7 +97,7 @@ export function OutputRenderer({ output, noOutputText }: OutputRendererProps) {
               setIsUserScrolled(false);
               bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="ml-auto px-2 py-0.5 rounded text-[10px] theme-text-muted theme-hover flex items-center gap-1"
+            className="ml-auto px-2 py-0.5 rounded text-xs theme-text-tertiary theme-hover flex items-center gap-1"
           >
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -109,18 +110,18 @@ export function OutputRenderer({ output, noOutputText }: OutputRendererProps) {
       {/* Content */}
       <div ref={containerRef} className="flex-1 overflow-auto p-5">
         {renderMode === 'markdown' ? (
-          <div className="output-markdown prose prose-invert prose-sm max-w-none text-xs leading-relaxed">
+          <div className="output-markdown prose prose-invert prose-sm max-w-none text-sm leading-relaxed text-pretty">
             <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
               {capped}
             </ReactMarkdown>
           </div>
         ) : hasAnsiCodes(capped) ? (
           <pre
-            className="text-xs font-mono theme-text-secondary leading-relaxed whitespace-pre-wrap break-all"
+            className="text-sm font-mono theme-text-secondary leading-relaxed whitespace-pre-wrap break-all"
             dangerouslySetInnerHTML={{ __html: ansiConverter.toHtml(capped) }}
           />
         ) : (
-          <pre className="text-xs font-mono theme-text-secondary leading-relaxed whitespace-pre-wrap break-all">
+          <pre className="text-sm font-mono theme-text-secondary leading-relaxed whitespace-pre-wrap break-all">
             {capped}
           </pre>
         )}

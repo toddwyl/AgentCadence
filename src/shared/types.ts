@@ -38,7 +38,7 @@ export const TOOL_META: Record<ToolType, {
     displayName: 'Codex',
     defaultModels: ['gpt-5-codex', 'o3', 'gpt-4.1'],
     iconName: 'terminal',
-    tintColor: '#22c55e',
+    tintColor: '#6366f1',
   },
   claude: {
     displayName: 'Claude',
@@ -50,7 +50,7 @@ export const TOOL_META: Record<ToolType, {
     displayName: 'Cursor',
     defaultModels: ['auto', 'gpt-5.2-codex', 'claude-4.6-sonnet-medium'],
     iconName: 'mouse-pointer',
-    tintColor: '#3b82f6',
+    tintColor: '#374151',
   },
 };
 
@@ -135,7 +135,12 @@ export interface StepRunRecord {
   status: StepStatus;
   startedAt?: string;
   endedAt?: string;
+  /** Legacy summary output kept for backward compatibility. */
   output?: string;
+  /** Full raw terminal/log text for new runs. */
+  rawOutput?: string;
+  /** Structured activity transcript for new runs. */
+  agentFeed?: AgentFeedItem[];
   retryRecords?: RetryRecord[];
   totalAttempts?: number;
   /** Planned max attempts when failureMode is retry (for live UI) */
@@ -349,6 +354,7 @@ export const DEFAULT_CLI_PROFILE: CLIProfile = {
     executable: 'claude',
     baseArgs: [
       '--print',
+      '--verbose',
       '--output-format',
       'stream-json',
       '--permission-mode',
@@ -453,35 +459,382 @@ export type AgentTodoSnapshotItem = {
   status: 'pending' | 'in_progress' | 'completed';
 };
 
-/** Structured agent JSONL → IM-style timeline (OpenClaw-like). */
+export type AgentTranscriptStatus = 'running' | 'completed' | 'failed';
+export type AgentTranscriptImportance = 'primary' | 'secondary' | 'collapsed_group' | 'preview_only';
+export type AgentActivityGroupType = 'tool_activity' | 'assistant_progress';
+export type AgentDiffRowKind = 'file' | 'meta' | 'hunk' | 'context' | 'added' | 'removed';
+export type AgentCommandActionType = 'read' | 'list_files' | 'search' | 'unknown';
+
+export interface AgentTranscriptDisplayMeta {
+  importance: AgentTranscriptImportance;
+  collapsed?: boolean;
+  expandable?: boolean;
+  previewText?: string;
+  omittedCount?: number;
+  groupLabel?: string;
+}
+
+export interface AgentDiffRow {
+  kind: AgentDiffRowKind;
+  text: string;
+  sign?: '+' | '-' | ' ';
+  oldLineNumber?: number | null;
+  newLineNumber?: number | null;
+}
+
+export interface AgentParsedDiffFile {
+  path: string;
+  oldPath?: string;
+  newPath?: string;
+  added: number;
+  removed: number;
+  rows: AgentDiffRow[];
+}
+
+export interface AgentCommandAction {
+  type: AgentCommandActionType;
+  command: string;
+  path?: string;
+  query?: string;
+  name?: string;
+}
+
+function stripShellWrapper(command: string): string {
+  const trimmed = command.trim();
+  const shellMatch = trimmed.match(/^(?:\/bin\/)?(?:ba|z|fi)?sh\s+-lc\s+(['"])([\s\S]*)\1$/i);
+  if (shellMatch?.[2]) return shellMatch[2].trim();
+  return trimmed;
+}
+
+function truncateActionValue(value: string, max = 120): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
+function splitCommandClauses(command: string): string[] {
+  return command
+    .split(/\s*(?:&&|\|\||;)\s*/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function cleanToken(token: string): string {
+  return token.replace(/^['"]|['"]$/g, '').trim();
+}
+
+function parseSearchQuery(command: string): string | undefined {
+  const quoted = command.match(/['"]([^'"]{2,})['"]/);
+  if (quoted?.[1]) return truncateActionValue(quoted[1]);
+  const token = command
+    .split(/\s+/)
+    .map(cleanToken)
+    .find((part) => part && !part.startsWith('-') && !part.includes('/') && !part.includes('*'));
+  return token ? truncateActionValue(token) : undefined;
+}
+
+function parsePathishToken(command: string): string | undefined {
+  const tokens = command.split(/\s+/).map(cleanToken).filter(Boolean);
+  for (let i = tokens.length - 1; i >= 1; i--) {
+    const token = tokens[i];
+    if (!token || token.startsWith('-')) continue;
+    if (token === '.' || token === '..' || token.includes('/') || token.includes('.')) {
+      return truncateActionValue(token);
+    }
+  }
+  const fallback = tokens.at(-1);
+  return fallback && !fallback.startsWith('-') ? truncateActionValue(fallback) : undefined;
+}
+
+function parseReadClause(clause: string): AgentCommandAction | null {
+  const readMatch = clause.match(/^(cat|bat|less|more|head|tail)\b/i);
+  if (readMatch) {
+    const path = parsePathishToken(clause);
+    return {
+      type: 'read',
+      command: truncateActionValue(clause),
+      path,
+      name: path ? path.split('/').at(-1) : undefined,
+    };
+  }
+
+  const sedMatch = clause.match(/^sed\b/i);
+  if (sedMatch) {
+    const path = parsePathishToken(clause);
+    if (path) {
+      return {
+        type: 'read',
+        command: truncateActionValue(clause),
+        path,
+        name: path.split('/').at(-1),
+      };
+    }
+  }
+
+  return null;
+}
+
+function parseListClause(clause: string): AgentCommandAction | null {
+  if (/^(ls|tree)\b/i.test(clause)) {
+    return {
+      type: 'list_files',
+      command: truncateActionValue(clause),
+      path: parsePathishToken(clause),
+    };
+  }
+
+  if (/^(fd|find)\b/i.test(clause) && !/\b(name|iname|grep|exec)\b/i.test(clause)) {
+    return {
+      type: 'list_files',
+      command: truncateActionValue(clause),
+      path: parsePathishToken(clause),
+    };
+  }
+
+  if (/^rg\b/i.test(clause) && /\s--files(?:\s|$)/.test(clause)) {
+    return {
+      type: 'list_files',
+      command: truncateActionValue(clause),
+      path: parsePathishToken(clause),
+    };
+  }
+
+  return null;
+}
+
+function parseSearchClause(clause: string): AgentCommandAction | null {
+  if (/^(rg|grep)\b/i.test(clause) || (/^find\b/i.test(clause) && /\b(name|iname)\b/i.test(clause))) {
+    return {
+      type: 'search',
+      command: truncateActionValue(clause),
+      query: parseSearchQuery(clause),
+      path: parsePathishToken(clause),
+    };
+  }
+
+  return null;
+}
+
+export function parseCommandActions(command: string): AgentCommandAction[] {
+  const normalized = stripShellWrapper(command);
+  const clauses = splitCommandClauses(normalized);
+  if (clauses.length === 0) {
+    return [{ type: 'unknown', command: truncateActionValue(normalized || command) }];
+  }
+
+  const parsed = clauses.map((clause) => {
+    return (
+      parseReadClause(clause) ??
+      parseListClause(clause) ??
+      parseSearchClause(clause) ?? {
+        type: 'unknown' as const,
+        command: truncateActionValue(clause),
+      }
+    );
+  });
+
+  const deduped: AgentCommandAction[] = [];
+  for (const action of parsed) {
+    const prev = deduped[deduped.length - 1];
+    if (
+      prev &&
+      prev.type === action.type &&
+      prev.command === action.command &&
+      prev.path === action.path &&
+      prev.query === action.query &&
+      prev.name === action.name
+    ) {
+      continue;
+    }
+    deduped.push(action);
+  }
+  return deduped;
+}
+
+export function summarizeCommandAction(action: AgentCommandAction): string {
+  switch (action.type) {
+    case 'read':
+      return `Read ${action.name ?? action.path ?? action.command}`;
+    case 'list_files':
+      return `List ${action.path ?? action.command}`;
+    case 'search':
+      if (action.query && action.path) return `Search ${action.query} in ${action.path}`;
+      return `Search ${action.query ?? action.command}`;
+    default:
+      return `Run ${action.command}`;
+  }
+}
+
+/** Structured agent JSONL → transcript-style timeline for the runtime monitor. */
 export type AgentFeedItem =
+  | { kind: 'session'; model?: string; cwd?: string }
+  /** Legacy persisted snapshot item kept for backward compatibility. */
   | { kind: 'init'; model?: string; cwd?: string }
   | { kind: 'user_turn' }
+  | { kind: 'reasoning'; text: string; summary: string; status: AgentTranscriptStatus }
+  /** Legacy persisted snapshot item kept for backward compatibility. */
   | { kind: 'thinking'; text: string }
   | { kind: 'assistant'; text: string }
   | {
-      kind: 'tool';
-      phase: 'started' | 'completed' | 'update';
+      kind: 'command';
+      status: AgentTranscriptStatus;
+      summary: string;
+      command: string;
+      callId?: string;
+      commandActions?: AgentCommandAction[];
+      resultPreview?: string;
+      durationMs?: number | null;
+      exitCode?: number | null;
+      ok?: boolean;
+    }
+  | {
+      kind: 'tool_call';
+      status: AgentTranscriptStatus;
       /** One-line description; also used as merge key when callId is absent */
       summary: string;
       /** Canonical tool id from the CLI, e.g. read_file, write */
-      toolName?: string;
+      toolName: string;
       /** Path, command preview, or other primary argument */
       detail?: string;
       /** Stable id from the agent stream when present (preferred merge key) */
       callId?: string;
       resultPreview?: string;
-      /** Unified diff from `git diff` after edit-like tools (web activity pane). */
+      durationMs?: number | null;
+      /** Unified diff from `git diff` after edit-like tools (runtime transcript). */
       gitDiffUnified?: string;
       ok?: boolean;
     }
+  | {
+      kind: 'file_change';
+      path: string;
+      summary: string;
+      parentCallId?: string;
+      gitDiffUnified?: string;
+    }
+  /** Legacy persisted snapshot item kept for backward compatibility. */
+  | {
+      kind: 'tool';
+      phase: 'started' | 'completed' | 'update';
+      summary: string;
+      toolName?: string;
+      detail?: string;
+      callId?: string;
+      resultPreview?: string;
+      gitDiffUnified?: string;
+      ok?: boolean;
+    }
+  | { kind: 'turn_result'; ok: boolean; durationMs?: number | null; error?: string }
+  /** Legacy persisted snapshot item kept for backward compatibility. */
   | { kind: 'result'; ok: boolean; durationMs?: number | null }
   | { kind: 'todo'; items: AgentTodoSnapshotItem[] };
+
+export type AgentTranscriptDisplayItem =
+  | { kind: 'session'; model?: string; cwd?: string; display: AgentTranscriptDisplayMeta }
+  | { kind: 'assistant'; text: string; summary: string; display: AgentTranscriptDisplayMeta }
+  | {
+      kind: 'reasoning';
+      text: string;
+      summary: string;
+      status: AgentTranscriptStatus;
+      display: AgentTranscriptDisplayMeta;
+    }
+  | {
+      kind: 'command';
+      status: AgentTranscriptStatus;
+      summary: string;
+      command: string;
+      callId?: string;
+      commandActions?: AgentCommandAction[];
+      resultPreview?: string;
+      durationMs?: number | null;
+      exitCode?: number | null;
+      ok?: boolean;
+      display: AgentTranscriptDisplayMeta;
+    }
+  | {
+      kind: 'tool_call';
+      status: AgentTranscriptStatus;
+      summary: string;
+      toolName: string;
+      detail?: string;
+      callId?: string;
+      resultPreview?: string;
+      durationMs?: number | null;
+      gitDiffUnified?: string;
+      ok?: boolean;
+      display: AgentTranscriptDisplayMeta;
+    }
+  | {
+      kind: 'file_change';
+      path: string;
+      summary: string;
+      parentCallId?: string;
+      gitDiffUnified?: string;
+      diffFiles: AgentParsedDiffFile[];
+      display: AgentTranscriptDisplayMeta;
+    }
+  | {
+      kind: 'activity_group';
+      summary: string;
+      groupType: AgentActivityGroupType;
+      entries: string[];
+      display: AgentTranscriptDisplayMeta;
+    }
+  | { kind: 'todo'; items: AgentTodoSnapshotItem[]; display: AgentTranscriptDisplayMeta }
+  | {
+      kind: 'turn_result';
+      ok: boolean;
+      durationMs?: number | null;
+      error?: string;
+      display: AgentTranscriptDisplayMeta;
+    };
 
 /** Single parsed JSONL-derived event before merging into {@link AgentFeedItem} blocks. */
 export type AgentStreamUiEvent =
   | { kind: 'session_init'; model?: string; cwd?: string }
   | { kind: 'assistant_delta'; text: string }
+  | { kind: 'reasoning_delta'; text: string }
+  | {
+      kind: 'command';
+      phase: 'started' | 'completed' | 'update';
+      summary: string;
+      command: string;
+      callId?: string;
+      commandActions?: AgentCommandAction[];
+      resultPreview?: string;
+      durationMs?: number | null;
+      exitCode?: number | null;
+      ok?: boolean;
+    }
+  | {
+      kind: 'tool_call';
+      phase: 'started' | 'completed' | 'update';
+      summary: string;
+      toolName: string;
+      detail?: string;
+      callId?: string;
+      durationMs?: number | null;
+      ok?: boolean;
+    }
+  | {
+      kind: 'tool_result';
+      summary: string;
+      toolName: string;
+      detail?: string;
+      callId?: string;
+      resultPreview?: string;
+      durationMs?: number | null;
+      gitDiffUnified?: string;
+      ok?: boolean;
+    }
+  | {
+      kind: 'file_change';
+      path: string;
+      summary?: string;
+      parentCallId?: string;
+      gitDiffUnified?: string;
+    }
+  /** Legacy event shape emitted by older presenters; merged as tool_call/tool_result. */
   | { kind: 'thinking_delta'; text: string }
   | {
       kind: 'tool';
@@ -495,7 +848,7 @@ export type AgentStreamUiEvent =
       gitDiffUnified?: string;
       ok?: boolean;
     }
-  | { kind: 'turn_result'; ok: boolean; durationMs?: number | null }
+  | { kind: 'turn_result'; ok: boolean; durationMs?: number | null; error?: string }
   | { kind: 'user_turn' }
   | { kind: 'todo_snapshot'; items: AgentTodoSnapshotItem[] };
 

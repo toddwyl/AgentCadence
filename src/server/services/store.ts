@@ -65,11 +65,15 @@ export function loadProfile(): CLIProfile {
     saveProfile(DEFAULT_CLI_PROFILE);
     return DEFAULT_CLI_PROFILE;
   }
-  return data;
+  const normalized = normalizeProfile(data);
+  if (JSON.stringify(normalized) !== JSON.stringify(data)) {
+    saveProfile(normalized);
+  }
+  return normalized;
 }
 
 export function saveProfile(profile: CLIProfile) {
-  writeJSON('cli-profile.json', profile);
+  writeJSON('cli-profile.json', normalizeProfile(profile));
 }
 
 export function loadLLMConfig(): LLMConfig {
@@ -158,4 +162,35 @@ export function loadPostActionRuns(): PostActionRun[] {
 
 export function savePostActionRuns(runs: PostActionRun[]) {
   writeJSON('post-action-runs.json', runs.slice(-200));
+}
+
+function normalizeProfile(profile: CLIProfile): CLIProfile {
+  const claudeArgs = normalizeClaudeArgs(profile.claude.baseArgs ?? []);
+  if (claudeArgs === profile.claude.baseArgs) return profile;
+  return {
+    ...profile,
+    claude: {
+      ...profile.claude,
+      baseArgs: claudeArgs,
+    },
+  };
+}
+
+function normalizeClaudeArgs(args: string[]): string[] {
+  const next = [...args];
+  const hasPrint = next.includes('--print') || next.includes('-p');
+  const streamJsonIdx = next.findIndex((arg, index) => {
+    if (arg === '--output-format' && next[index + 1] === 'stream-json') return true;
+    return arg === '--output-format=stream-json';
+  });
+  const hasVerbose = next.includes('--verbose');
+
+  if (hasPrint && streamJsonIdx !== -1 && !hasVerbose) {
+    const printIdx = next.findIndex((arg) => arg === '--print' || arg === '-p');
+    const insertAt = printIdx === -1 ? 0 : printIdx + 1;
+    next.splice(insertAt, 0, '--verbose');
+    return next;
+  }
+
+  return args;
 }
