@@ -179,7 +179,9 @@ The harness covers:
 ```text
 src/client        React UI
 src/server        Express routes and execution services
-src/shared        Shared types and merge logic
+src/domain        Domain entities and core workflow types
+src/contracts     API/event/planner contracts
+src/presentation  Transcript and display-layer transforms
 scripts           Harness, E2E helpers, and developer utilities
 docs              Demo assets and docs
 ```

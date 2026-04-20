@@ -179,7 +179,9 @@ Harness 会覆盖：
 ```text
 src/client        React 前端
 src/server        Express 路由和执行服务
-src/shared        共享类型与 merge 逻辑
+src/domain        领域实体与核心流程类型
+src/contracts     API/事件/planner 契约
+src/presentation  transcript 与展示层转换逻辑
 scripts           Harness、E2E 辅助脚本、开发工具
 docs              截图和说明文档
 ```
