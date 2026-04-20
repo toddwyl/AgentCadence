@@ -9,7 +9,7 @@ import type {
   AgentTranscriptDisplayMeta,
   AgentTranscriptStatus,
 } from './types.js';
-import { parseCommandActions, summarizeCommandAction } from './types.js';
+import { parseCommandActions, summarizeCommandAction } from './command-actions.js';
 
 const MAX_FEED_ITEMS = 500;
 const MAX_BLOCK_CHARS = 120_000;
@@ -222,40 +222,26 @@ function appendLegacyToolEvent(
   });
 }
 
-/** Client + server: merge one stream event into the runtime transcript feed. */
-export function applyAgentStreamEvent(
-  feed: AgentFeedItem[],
-  event: AgentStreamUiEvent
-): AgentFeedItem[] {
-  const next = [...feed];
-
-  if (event.kind !== 'reasoning_delta' && event.kind !== 'thinking_delta') {
-    closeOpenReasoning(next);
-  }
+export function applyAgentStreamEvent(feed: AgentFeedItem[], event: AgentStreamUiEvent): AgentFeedItem[] {
+  const next = feed.slice();
 
   switch (event.kind) {
-    case 'session_init': {
-      const last = next[next.length - 1];
-      if (last?.kind === 'session' || last?.kind === 'init') {
-        if (event.model) last.model = event.model;
-        if (event.cwd) last.cwd = event.cwd;
-      } else {
-        pushItem(next, { kind: 'session', model: event.model, cwd: event.cwd });
-      }
+    case 'session_init':
+      closeOpenReasoning(next);
+      pushItem(next, { kind: 'session', model: event.model, cwd: event.cwd });
       break;
-    }
     case 'assistant_delta':
-      if (event.text) mergeAssistantTail(next, event.text);
+      mergeAssistantTail(next, event.text);
       break;
     case 'reasoning_delta':
-    case 'thinking_delta':
-      if (event.text) mergeReasoningTail(next, event.text);
+      mergeReasoningTail(next, event.text);
       break;
     case 'command': {
       const idx = findCommandIndex(next, event.callId, event.command);
       const patch: Partial<AgentFeedItem & { kind: 'command' }> = {
         kind: 'command',
         summary: event.summary,
+        command: event.command,
         callId: event.callId,
         commandActions: event.commandActions ?? parseCommandActions(event.command),
         resultPreview: event.resultPreview,

@@ -1,4 +1,4 @@
-import { mergeDetectedPathsIntoProfile } from '../../shared/cli-detect-merge.js';
+import { mergeDetectedPathsIntoProfile } from '../../contracts/settings/cli-detect-merge.js';
 import { CLIRunner } from './cli-runner.js';
 import { detectCliEnvironmentPaths } from './cli-environment-detect.js';
 import { loadProfile, saveProfile } from './store.js';

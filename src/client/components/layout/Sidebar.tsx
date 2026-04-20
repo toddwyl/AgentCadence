@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
 import { pickWorkingDirectory } from '../../lib/pick-folder';
-import type { Pipeline, PipelineTemplate } from '@shared/types';
+import type { Pipeline, PipelineTemplate } from '../../../domain/pipeline.js';
 import { BrandMark } from '../ui/BrandMark';
 
 export function Sidebar() {

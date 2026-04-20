@@ -2,12 +2,14 @@ import { execSync } from 'child_process';
 import type {
   Pipeline,
   PipelineStep,
+} from '../../domain/pipeline.js';
+import type {
   StepStatus,
-  CLIProfile,
   RetryRecord,
   AgentStreamUiEvent,
-} from '../../shared/types.js';
-import { resolveAllSteps, stepHasCustomCommand, interpolatePromptVariables } from '../../shared/types.js';
+} from '../../domain/run.js';
+import type { CLIProfile } from '../../domain/settings.js';
+import { resolveAllSteps, stepHasCustomCommand, interpolatePromptVariables } from '../../domain/pipeline.js';
 import type { StepResult } from './tool-runner.js';
 import { getRunnerForTool } from './tool-runner.js';
 import { CommandRunner } from './command-runner.js';

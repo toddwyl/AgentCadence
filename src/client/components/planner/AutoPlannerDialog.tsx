@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '../../store/app-store';
 import { pickWorkingDirectory } from '../../lib/pick-folder';
-import type { PlanningPhase } from '@shared/types';
+import type { PlanningPhase } from '../../../domain/planning.js';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 import { ModalCloseButton } from '../ui/ModalCloseButton';
 

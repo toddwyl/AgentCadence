@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AgentFeedItem, Pipeline, PipelineRunRecord, StepRunRecord, StepStatus } from '@shared/types';
-import { safeToolMeta } from '@shared/types';
+import type { Pipeline } from '../../../domain/pipeline.js';
+import type { PipelineRunRecord, StepRunRecord, StepStatus } from '../../../domain/run.js';
+import type { AgentFeedItem } from '../../../contracts/events/agent-feed.js';
+import { safeToolMeta } from '../../../domain/tooling.js';
 import { useAppStore } from '../../store/app-store';
 import { AgentActivityFeed } from './AgentActivityFeed';
 import { TerminalPane } from './TerminalPane';

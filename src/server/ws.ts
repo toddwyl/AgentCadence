@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server } from 'http';
-import type { WSMessage } from '../shared/types.js';
+import type { WSMessage } from '../contracts/events/ws.js';
 import { getActiveRunSnapshots } from './services/live-run-buffer.js';
 
 let wss: WebSocketServer | null = null;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { PipelineTemplate } from '@shared/types';
+import type { PipelineTemplate } from '../../../domain/pipeline.js';
 import { api } from '../../lib/api';
 import { pickWorkingDirectory } from '../../lib/pick-folder';
 import { useAppStore } from '../../store/app-store';

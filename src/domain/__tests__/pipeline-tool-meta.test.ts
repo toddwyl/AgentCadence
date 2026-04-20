@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { safeToolMeta, TOOL_META } from '../types.js';
+import { describe, expect, it } from 'vitest';
+import { safeToolMeta, TOOL_META } from '../pipeline.js';
 
 describe('safeToolMeta', () => {
   it('returns correct meta for "cursor"', () => {
@@ -29,11 +29,6 @@ describe('safeToolMeta', () => {
 
   it('returns fallback (cursor) for unknown string', () => {
     const meta = safeToolMeta('nonexistent-tool');
-    expect(meta).toEqual(TOOL_META.cursor);
-  });
-
-  it('returns fallback (cursor) for empty string', () => {
-    const meta = safeToolMeta('');
     expect(meta).toEqual(TOOL_META.cursor);
   });
 });

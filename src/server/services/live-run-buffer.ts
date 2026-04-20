@@ -1,12 +1,13 @@
 import type {
-  Pipeline,
   ActiveExecutionRunPayload,
   StepStatus,
   RetryRecord,
   AgentStreamUiEvent,
-} from '../../shared/types.js';
-import { pipelineAllSteps } from '../../shared/types.js';
-import { applyAgentStreamEvent } from '../../shared/agent-feed-merge.js';
+  TriggerType,
+} from '../../domain/run.js';
+import type { Pipeline } from '../../domain/pipeline.js';
+import { pipelineAllSteps } from '../../domain/pipeline.js';
+import { applyAgentStreamEvent } from '../../presentation/transcript/agent-feed-merge.js';
 
 /** Tail cap per step to bound memory (aligned with planning log scale in app-store). */
 const MAX_STEP_OUTPUT_CHARS = 120_000;
@@ -18,7 +19,11 @@ function capOutput(s: string): string {
   return s.slice(-MAX_STEP_OUTPUT_CHARS);
 }
 
-export function initLiveRun(pipeline: Pipeline, runId: string): void {
+export function initLiveRun(
+  pipeline: Pipeline,
+  runId: string,
+  triggerType: TriggerType = 'manual'
+): void {
   const stepStatuses: Record<string, StepStatus> = {};
   for (const step of pipelineAllSteps(pipeline)) {
     stepStatuses[step.id] = 'pending';
@@ -26,6 +31,9 @@ export function initLiveRun(pipeline: Pipeline, runId: string): void {
   runs.set(pipeline.id, {
     pipelineID: pipeline.id,
     runID: runId,
+    pipelineName: pipeline.name,
+    triggerType,
+    startedAt: new Date().toISOString(),
     stepStatuses,
     stepOutputs: {},
     stepAgentFeeds: {},

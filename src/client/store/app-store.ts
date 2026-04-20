@@ -1,19 +1,11 @@
 import { create } from 'zustand';
-import type {
-  Pipeline,
-  PipelineStep,
-  StepStatus,
-  CLIProfile,
-  LLMConfig,
-  PlanningPhase,
-  ExecutionNotificationSettings,
-  RetryRecord,
-  ActiveExecutionRunPayload,
-  AgentStreamUiEvent,
-  AgentFeedItem,
-} from '@shared/types';
-import { pipelineAllSteps } from '@shared/types';
-import { applyAgentStreamEvent } from '@shared/agent-feed-merge';
+import type { StepStatus, ActiveExecutionRunPayload, RetryRecord } from '../../domain/run.js';
+import type { CLIProfile, LLMConfig, ExecutionNotificationSettings } from '../../domain/tooling.js';
+import type { PlanningPhase } from '../../domain/planning.js';
+import type { AgentStreamUiEvent, AgentFeedItem } from '../../contracts/events/agent-feed.js';
+import type { Pipeline, PipelineStep } from '../../domain/pipeline.js';
+import { pipelineAllSteps } from '../../domain/pipeline.js';
+import { applyAgentStreamEvent } from '../../presentation/transcript/agent-feed-merge.js';
 import { api } from '../lib/api';
 import { sendWSMessage } from '../hooks/useWebSocket';
 import type { Locale, Translations } from '../i18n';

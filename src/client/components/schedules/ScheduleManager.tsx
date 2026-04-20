@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { Schedule, ScheduleRun, Pipeline } from '@shared/types';
+import type { Pipeline } from '../../../domain/pipeline.js';
+import type { Schedule, ScheduleRun } from '../../../domain/triggers.js';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../store/app-store';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';

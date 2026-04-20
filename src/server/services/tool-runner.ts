@@ -1,11 +1,10 @@
 import type {
   PipelineStep,
-  CLIProfile,
   ToolType,
-  RetryRecord,
-  AgentStreamUiEvent,
-} from '../../shared/types.js';
-import { buildToolArguments, normalizeCursorModelForCLI, profileConfigForTool } from '../../shared/types.js';
+} from '../../domain/pipeline.js';
+import type { CLIProfile } from '../../domain/settings.js';
+import type { RetryRecord, AgentStreamUiEvent } from '../../domain/run.js';
+import { buildToolArguments, normalizeCursorModelForCLI, profileConfigForTool } from '../../domain/pipeline.js';
 import { CLIRunner } from './cli-runner.js';
 import { createCliStreamPresenter } from './cli-output/factory.js';
 
@@ -115,4 +114,5 @@ export function getRunnerForTool(tool: ToolType): ToolRunnerInterface {
     case 'claude': return claudeRunner;
     case 'cursor': return cursorRunner;
   }
+  throw new Error(`Unsupported tool: ${tool satisfies never}`);
 }

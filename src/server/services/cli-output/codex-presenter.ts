@@ -3,7 +3,8 @@
  * AGENTCADENCE_CODEX_RAW_JSON=1 disables prettify (pass-through).
  */
 
-import type { AgentCommandAction, AgentStreamUiEvent } from '../../../shared/types.js';
+import type { AgentCommandAction } from '../../../contracts/events/agent-feed.js';
+import type { AgentStreamUiEvent } from '../../../domain/run.js';
 import { CYN, DIM, GRN, RST, YLW } from './ansi.js';
 import { JsonlLineBuffer } from './jsonl-line-buffer.js';
 import type { CliStreamPresenterHandle, TerminalEmit } from './types.js';

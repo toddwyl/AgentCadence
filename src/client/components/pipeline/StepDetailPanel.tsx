@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { PipelineStep, ToolType, RetryRecord, PromptMentionItem, PromptMentionsResponse } from '@shared/types';
-import { TOOL_META, TOOL_TYPES } from '@shared/types';
+import type { PipelineStep } from '../../../domain/pipeline.js';
+import type { RetryRecord } from '../../../domain/run.js';
+import type { PromptMentionItem, PromptMentionsResponse } from '../../../domain/mentions.js';
+import type { ToolType } from '../../../domain/tooling.js';
+import { TOOL_META, TOOL_TYPES } from '../../../domain/tooling.js';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';

@@ -1,7 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import type { PromptMentionItem, PromptMentionsResponse, ToolType } from '../../shared/types.js';
+import type {
+  PromptMentionItem,
+  PromptMentionsResponse,
+  ToolType,
+} from '../../contracts/api/prompt-mentions.js';
 
 function resolveWd(workingDirectory: string): string {
   if (!workingDirectory) return '';

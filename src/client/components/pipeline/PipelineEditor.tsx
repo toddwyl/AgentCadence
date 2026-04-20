@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { Pipeline, PipelineStage, PipelineStep, ToolType } from '@shared/types';
-import { TOOL_META, TOOL_TYPES, safeToolMeta } from '@shared/types';
+import type { Pipeline, PipelineStage, PipelineStep } from '../../../domain/pipeline.js';
+import type { ToolType } from '../../../domain/tooling.js';
+import { TOOL_META, TOOL_TYPES, safeToolMeta } from '../../../domain/tooling.js';
 import { useAppStore } from '../../store/app-store';
 import { StepDetailPanel } from './StepDetailPanel';
 import { PipelineSettingsPanel } from './PipelineSettingsPanel';

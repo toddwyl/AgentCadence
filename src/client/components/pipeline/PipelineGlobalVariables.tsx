@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Pipeline } from '@shared/types';
+import type { Pipeline } from '../../../domain/pipeline.js';
 import { useAppStore } from '../../store/app-store';
 
 const KEY_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;

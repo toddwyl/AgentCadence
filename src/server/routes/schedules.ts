@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import type { Schedule, CreateScheduleRequest, UpdateScheduleRequest } from '../../shared/types.js';
+import type { Schedule, CreateScheduleRequest, UpdateScheduleRequest } from '../../contracts/api/schedules.js';
 import { loadSchedules, saveSchedules, loadScheduleRuns } from '../services/store.js';
 import { registerSchedule, stopScheduleJob } from '../services/cron-scheduler.js';
 

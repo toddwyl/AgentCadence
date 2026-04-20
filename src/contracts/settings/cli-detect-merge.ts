@@ -1,8 +1,8 @@
-import type { CLIProfile, DetectionResult } from './types.js';
+import type { CLIProfile, DetectionResult } from '../../domain/settings.js';
 
 /**
  * Merge `command -v` results into profile executables.
- * If planner.executable === cursor.executable before merge, planner tracks cursor’s path.
+ * If planner.executable === cursor.executable before merge, planner tracks cursor path.
  */
 export function mergeDetectedPathsIntoProfile(
   profile: CLIProfile,
@@ -23,10 +23,14 @@ export function mergeDetectedPathsIntoProfile(
         updated = { ...updated, planner: { ...updated.planner, executable: row.path } };
         changed = true;
       }
-    } else if (row.executable === 'codex' && updated.codex.executable !== row.path) {
+      continue;
+    }
+    if (row.executable === 'codex' && updated.codex.executable !== row.path) {
       updated = { ...updated, codex: { ...updated.codex, executable: row.path } };
       changed = true;
-    } else if (row.executable === 'claude' && updated.claude.executable !== row.path) {
+      continue;
+    }
+    if (row.executable === 'claude' && updated.claude.executable !== row.path) {
       updated = { ...updated, claude: { ...updated.claude, executable: row.path } };
       changed = true;
     }

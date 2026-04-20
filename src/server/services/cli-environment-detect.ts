@@ -1,4 +1,4 @@
-import type { DetectionResult } from '../../shared/types.js';
+import type { DetectionResult } from '../../domain/settings.js';
 import type { CLIRunner } from './cli-runner.js';
 
 const EXECUTABLES = ['cursor-agent', 'codex', 'claude'] as const;

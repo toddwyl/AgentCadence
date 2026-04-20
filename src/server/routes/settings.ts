@@ -9,7 +9,7 @@ import {
 } from '../services/store.js';
 import { CLIRunner } from '../services/cli-runner.js';
 import { detectCliEnvironmentPaths } from '../services/cli-environment-detect.js';
-import type { CLIProfile } from '../../shared/types.js';
+import type { CLIProfile } from '../../domain/settings.js';
 
 const router = Router();
 

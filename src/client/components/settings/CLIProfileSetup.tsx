@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { LLMConfig, CLIProfile, DetectionResult, ToolType } from '@shared/types';
-import { mergeDetectedPathsIntoProfile } from '@shared/cli-detect-merge';
-import { TOOL_TYPES, TOOL_META } from '@shared/types';
+import { mergeDetectedPathsIntoProfile } from '../../../contracts/settings/cli-detect-merge.js';
+import type { DetectionResult } from '../../../domain/tooling.js';
+import type { ToolType } from '../../../domain/tooling.js';
+import type { CLIProfile, LLMConfig } from '../../../domain/tooling.js';
+import { TOOL_TYPES, TOOL_META } from '../../../domain/tooling.js';
 import { useAppStore } from '../../store/app-store';
 import { api } from '../../lib/api';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';

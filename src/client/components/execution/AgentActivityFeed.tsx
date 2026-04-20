@@ -9,12 +9,14 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   parseCommandActions,
   summarizeCommandAction,
-  type AgentParsedDiffFile,
-  type AgentTranscriptDisplayItem,
-  type AgentTranscriptStatus,
-} from '@shared/types';
-import { buildAgentTranscriptDisplayItems } from '@shared/agent-feed-merge';
-import type { AgentFeedItem } from '@shared/types';
+} from '../../../presentation/transcript/command-actions.js';
+import type {
+  AgentFeedItem,
+  AgentParsedDiffFile,
+  AgentTranscriptDisplayItem,
+  AgentTranscriptStatus,
+} from '../../../presentation/transcript/types.js';
+import { buildAgentTranscriptDisplayItems } from '../../../presentation/transcript/agent-feed-merge.js';
 import { AgentMarkdownBody } from './AgentMarkdownBody';
 
 export type AgentActivityFeedLabels = {

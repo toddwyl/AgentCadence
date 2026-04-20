@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import type { WSMessage } from '@shared/types';
+import type { WSMessage } from '../../domain/websocket.js';
 
 type WSHandler = (msg: WSMessage) => void;
 

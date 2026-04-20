@@ -1,10 +1,12 @@
-import type { PipelineStep, CLIProfile, AgentStreamUiEvent } from '../../shared/types.js';
+import type { PipelineStep } from '../../domain/pipeline.js';
+import type { CLIProfile } from '../../domain/settings.js';
+import type { AgentStreamUiEvent } from '../../domain/run.js';
 import {
   stepHasCustomCommand,
   profileConfigForTool,
   buildCommandTemplate,
   normalizeCursorModelForCLI,
-} from '../../shared/types.js';
+} from '../../domain/pipeline.js';
 import { CLIRunner, CLIError } from './cli-runner.js';
 import { createCliStreamPresenter } from './cli-output/factory.js';
 import type { StepResult } from './tool-runner.js';

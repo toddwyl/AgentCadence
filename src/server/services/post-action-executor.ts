@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { PipelineRunRecord, PostActionRun } from '../../shared/types.js';
+import type { PipelineRunRecord } from '../../domain/run.js';
+import type { PostActionRun } from '../../contracts/api/post-actions.js';
 import {
   loadPostActions,
   savePostActions,

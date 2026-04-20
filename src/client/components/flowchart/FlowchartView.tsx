@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import type { Pipeline, PipelineStage, PipelineStep, StepStatus } from '@shared/types';
-import { safeToolMeta } from '@shared/types';
+import type { Pipeline, PipelineStage, PipelineStep } from '../../../domain/pipeline.js';
+import type { StepStatus } from '../../../domain/run.js';
+import { safeToolMeta } from '../../../domain/tooling.js';
 import { useAppStore } from '../../store/app-store';
 
 const STEP_W = 180, STEP_H = 52;

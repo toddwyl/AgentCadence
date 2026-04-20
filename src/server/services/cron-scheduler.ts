@@ -1,11 +1,11 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { v4 as uuidv4 } from 'uuid';
-import type { Schedule, ScheduleRun } from '../../shared/types.js';
-import { loadSchedules, saveSchedules, loadScheduleRuns, saveScheduleRuns, loadPipelines, loadProfile } from './store.js';
+import type { Schedule, ScheduleRun } from '../../contracts/api/schedules.js';
+import { loadSchedules, saveSchedules, loadScheduleRuns, saveScheduleRuns, loadPipelines } from './store.js';
 import { broadcast } from '../ws.js';
 
 // Re-use the pipeline execution logic
-import { runPipelineForTrigger } from './pipeline-executor.js';
+import { runPipelineForTrigger } from './app/execution-service.js';
 
 const activeJobs = new Map<string, ScheduledTask>();
 

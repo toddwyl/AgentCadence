@@ -1,11 +1,13 @@
 import { useEffect, useCallback } from 'react';
 import type {
-  WSMessage,
-  RetryRecord,
   ActiveExecutionRunPayload,
+  RetryRecord,
   StepStatus,
-  AgentStreamUiEvent,
-} from '@shared/types';
+} from '../domain/run.js';
+import type { WSMessage } from '../domain/websocket.js';
+import type { PlanningPhase } from '../domain/planning.js';
+import type { Pipeline } from '../domain/pipeline.js';
+import type { AgentStreamUiEvent } from '../contracts/events/agent-feed.js';
 import { useAppStore } from './store/app-store';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Sidebar } from './components/layout/Sidebar';
@@ -48,11 +50,11 @@ export default function App() {
       case 'pipeline_run_finished':
         s.handleRunFinished(p.pipelineID as string, p.status as string, p.error as string | undefined); break;
       case 'planning_phase':
-        s.handlePlanningPhase(p.phase as import('@shared/types').PlanningPhase); break;
+        s.handlePlanningPhase(p.phase as PlanningPhase); break;
       case 'planning_log':
         s.handlePlanningLog(p.chunk as string); break;
       case 'planning_complete':
-        s.handlePlanningComplete(p.pipeline as import('@shared/types').Pipeline); break;
+        s.handlePlanningComplete(p.pipeline as Pipeline); break;
       case 'planning_error':
         s.handlePlanningError(p.error as string); break;
       case 'step_review_requested':

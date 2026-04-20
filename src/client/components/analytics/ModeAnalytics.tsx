@@ -1,5 +1,6 @@
 import { useAppStore } from '../../store/app-store';
-import type { Pipeline, PipelineRunRecord } from '@shared/types';
+import type { Pipeline } from '../../../domain/pipeline.js';
+import type { PipelineRunRecord } from '../../../domain/run.js';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 import { ModalCloseButton } from '../ui/ModalCloseButton';
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { PostAction, PostActionBinding, PostActionRun, Pipeline } from '@shared/types';
+import type { Pipeline } from '../../../domain/pipeline.js';
+import type { PostAction, PostActionBinding, PostActionRun } from '../../../domain/post-actions.js';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../store/app-store';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';

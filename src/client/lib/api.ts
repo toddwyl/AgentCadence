@@ -1,4 +1,5 @@
-import type { PromptMentionsResponse, ActiveExecutionRunPayload } from '@shared/types';
+import type { PromptMentionsResponse } from '../../domain/mentions.js';
+import type { ActiveExecutionRunPayload } from '../../domain/run.js';
 
 const BASE = '/api';
 

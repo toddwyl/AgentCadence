@@ -5,7 +5,7 @@ import type {
   PostActionBinding,
   CreatePostActionRequest,
   CreateBindingRequest,
-} from '../../shared/types.js';
+} from '../../contracts/api/post-actions.js';
 import {
   loadPostActions,
   savePostActions,

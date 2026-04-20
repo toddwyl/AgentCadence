@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
-import type { GeneratePipelineRequest } from '../../shared/types.js';
-import { TOOL_TYPES } from '../../shared/types.js';
+import type { GeneratePipelineRequest } from '../../contracts/api/planner.js';
+import { TOOL_TYPES } from '../../domain/pipeline.js';
 import { AIPlanner } from '../services/ai-planner.js';
 import { loadPipelines, savePipelines, loadProfile, loadLLMConfig } from '../services/store.js';
 import { broadcast } from '../ws.js';

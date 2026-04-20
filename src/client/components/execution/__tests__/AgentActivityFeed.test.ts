@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { AgentFeedItem } from '@shared/types';
+import type { AgentFeedItem } from '../../../../contracts/events/agent-feed.js';
 import { AgentActivityFeed } from '../AgentActivityFeed.js';
 
 const labels = {
@@ -66,13 +67,13 @@ describe('AgentActivityFeed', () => {
     ];
 
     const html = renderToStaticMarkup(
-      <AgentActivityFeed items={items} isLive noActivityText="No activity" labels={labels} />
+      createElement(AgentActivityFeed, { items, isLive: true, noActivityText: 'No activity', labels })
     );
 
     expect(html).toContain('Investigating the current implementation');
     expect(html).toContain('I am checking the current implementation.');
     expect(html).toContain('Explored 2 files');
-    expect(html).toContain('Read index.ts');
+    expect(html).toContain('Edited src/index.ts');
     expect(html).toContain('Code changes');
     expect(html).toContain('src/index.ts');
     expect(html).toContain('+1');

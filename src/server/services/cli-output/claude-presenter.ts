@@ -3,7 +3,7 @@
  * AGENTCADENCE_CLAUDE_RAW_STREAM_JSON=1 disables prettify (pass-through).
  */
 
-import type { AgentStreamUiEvent } from '../../../shared/types.js';
+import type { AgentStreamUiEvent } from '../../../domain/run.js';
 import { CYN, DIM, RST, YLW } from './ansi.js';
 import { JsonlLineBuffer } from './jsonl-line-buffer.js';
 import type { CliStreamPresenterHandle, TerminalEmit } from './types.js';

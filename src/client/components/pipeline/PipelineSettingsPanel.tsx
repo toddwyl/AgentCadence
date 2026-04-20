@@ -1,4 +1,4 @@
-import type { Pipeline } from '@shared/types';
+import type { Pipeline } from '../../../domain/pipeline.js';
 import { PipelineGlobalVariables } from './PipelineGlobalVariables';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 import { ModalCloseButton } from '../ui/ModalCloseButton';

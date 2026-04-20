@@ -4,11 +4,13 @@ import type {
   Pipeline,
   PipelineStage,
   PipelineStep,
-  CreatePipelineRequest,
+  ExecutionMode,
+} from '../../domain/pipeline.js';
+import type {
   AddStageRequest,
   AddStepRequest,
-  ExecutionMode,
-} from '../../shared/types.js';
+  CreatePipelineRequest,
+} from '../../contracts/api/pipelines.js';
 import { loadPipelines, savePipelines } from '../services/store.js';
 
 const router = Router();

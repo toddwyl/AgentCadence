@@ -2,8 +2,9 @@
  * Canonical pipeline Markdown format (shared by AI planner, import/export, templates).
  */
 
-import type { PlanResponse, PlannedStage, PlannedStep, ToolType } from './types.js';
-import { TOOL_TYPES } from './types.js';
+import type { PlanResponse, PlannedStage, PlannedStep } from './plan.js';
+import type { ToolType } from '../../domain/pipeline.js';
+import { TOOL_TYPES } from '../../domain/pipeline.js';
 
 const TOOL_SET = new Set<string>(TOOL_TYPES);
 
@@ -239,6 +240,7 @@ export function parseMarkdownToPlanResult(markdown: string, strict = false): Par
     }
     if (line.trim() === '```') {
       inPromptBlock = true;
+      promptLines = [];
       continue;
     }
   }
@@ -248,7 +250,7 @@ export function parseMarkdownToPlanResult(markdown: string, strict = false): Par
   }
 
   const plan: PlanResponse = {
-    pipelineName: pipelineName || 'Untitled Pipeline',
+    pipelineName,
     stages,
   };
 
@@ -256,71 +258,51 @@ export function parseMarkdownToPlanResult(markdown: string, strict = false): Par
   if (errors.length > 0) {
     return { ok: false, errors };
   }
+
   return { ok: true, plan };
 }
 
 export function validatePlanResponse(plan: PlanResponse, strict: boolean): string[] {
   const errors: string[] = [];
   if (!plan.pipelineName?.trim()) {
-    errors.push('Missing or empty pipeline title: use a single line `# Pipeline name`.');
-  }
-  if (!plan.stages?.length) {
-    errors.push('At least one stage is required: `## Stage name (parallel)` or `(sequential)`.');
-    return errors;
+    errors.push('Missing pipeline title (# heading).');
   }
 
-  const seenNames = new Set<string>();
-
+  const stepNames = new Set<string>();
   for (const stage of plan.stages) {
     if (!stage.name?.trim()) {
-      errors.push('A stage has an empty name.');
+      errors.push('Stage name cannot be empty.');
     }
-    const em = String(stage.executionMode || '').toLowerCase();
-    if (em !== 'parallel' && em !== 'sequential') {
-      errors.push(
-        `Stage "${stage.name || '(unnamed)'}": execution mode must be (parallel) or (sequential).`
-      );
+    if (stage.executionMode !== 'parallel' && stage.executionMode !== 'sequential') {
+      errors.push(`Invalid execution mode for stage "${stage.name}".`);
     }
-    if (!stage.steps?.length) {
-      errors.push(`Stage "${stage.name || '(unnamed)'}": add at least one step (\`### Step name\`).`);
-      continue;
+    if (stage.steps.length === 0) {
+      errors.push(`Stage "${stage.name}" must contain at least one step.`);
     }
 
     for (const step of stage.steps) {
       if (!step.name?.trim()) {
-        errors.push(`Stage "${stage.name || '(unnamed)'}": a step has an empty name.`);
-        continue;
+        errors.push(`Step name cannot be empty in stage "${stage.name}".`);
       }
-      if (seenNames.has(step.name)) {
-        errors.push(`Duplicate step name "${step.name}". Step names must be unique across the pipeline.`);
+      if (stepNames.has(step.name)) {
+        errors.push(`Duplicate step name: "${step.name}".`);
       }
-
-      const deps = step.dependsOn ?? [];
-      for (const dep of deps) {
-        if (!seenNames.has(dep)) {
-          errors.push(
-            `Step "${step.name}": **Depends On** references unknown or forward reference "${dep}".`
-          );
+      stepNames.add(step.name);
+      if (strict) {
+        if (!step.recommendedTool?.trim()) {
+          errors.push(`Step "${step.name}" is missing a tool.`);
+        }
+        if (!step.prompt?.trim()) {
+          errors.push(`Step "${step.name}" is missing a prompt.`);
         }
       }
-
-      const toolOk = normalizeTool(step.recommendedTool);
-      if (strict && !toolOk) {
-        errors.push(
-          `Step "${step.name}": **Tool** must be one of: ${TOOL_TYPES.join(', ')}.`
-        );
+      if (step.dependsOn) {
+        for (const dep of step.dependsOn) {
+          if (!stepNames.has(dep)) {
+            errors.push(`Step "${step.name}" depends on unknown or later step "${dep}".`);
+          }
+        }
       }
-      if (strict && !(step.prompt ?? '').trim()) {
-        errors.push(`Step "${step.name}": **Prompt** fenced block must be non-empty.`);
-      }
-
-      if (!strict && !toolOk && step.recommendedTool?.trim()) {
-        errors.push(
-          `Step "${step.name}": invalid **Tool** "${step.recommendedTool}". Use: ${TOOL_TYPES.join(', ')}.`
-        );
-      }
-
-      seenNames.add(step.name);
     }
   }
 
@@ -328,30 +310,23 @@ export function validatePlanResponse(plan: PlanResponse, strict: boolean): strin
 }
 
 export function buildPlannerRetryPrompt(
-  baseInstructions: string,
+  basePrompt: string,
   attempt: number,
   maxAttempts: number,
-  validationErrors: string[],
-  previousMarkdown: string
+  errors: string[],
+  lastMarkdown: string
 ): string {
-  const snippet = previousMarkdown.length > 14000
-    ? `${previousMarkdown.slice(0, 14000)}\n\n… [truncated]`
-    : previousMarkdown;
+  const errorSection = errors.length > 0
+    ? `\n\nLast validation errors:\n- ${errors.join('\n- ')}`
+    : '';
 
-  return `${baseInstructions}
+  const markdownSection = lastMarkdown.trim()
+    ? `\n\nLast output:\n\`\`\`markdown\n${lastMarkdown.trim()}\n\`\`\``
+    : '';
 
----
+  return `${basePrompt}
 
-## Regeneration required (attempt ${attempt} / ${maxAttempts})
+The previous attempt (attempt ${attempt - 1} of ${maxAttempts}) did not meet the required format or validation rules.${errorSection}${markdownSection}
 
-Your previous Markdown did not pass validation. Output ONLY the corrected pipeline Markdown document (no apology, no extra commentary).
-
-Validation errors:
-${validationErrors.map((e) => `- ${e}`).join('\n')}
-
-Previous output for reference:
-\`\`\`\`markdown
-${snippet}
-\`\`\`\`
-`;
+Please regenerate a corrected, fully valid Markdown plan only.`;
 }

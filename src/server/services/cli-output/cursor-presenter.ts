@@ -5,7 +5,8 @@
 
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import type { AgentStreamUiEvent, AgentTodoSnapshotItem } from '../../../shared/types.js';
+import type { AgentStreamUiEvent } from '../../../domain/run.js';
+import type { AgentTodoSnapshotItem } from '../../../contracts/events/agent-feed.js';
 import { CYN, DIM, GRN, RST, YLW } from './ansi.js';
 import { JsonlLineBuffer } from './jsonl-line-buffer.js';
 import type { CliStreamPresenterHandle, TerminalEmit } from './types.js';

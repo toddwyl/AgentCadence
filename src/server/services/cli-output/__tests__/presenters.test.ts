@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AgentStreamUiEvent } from '../../../../shared/types.js';
+import type { AgentStreamUiEvent } from '../../../../domain/run.js';
 import { createClaudeStreamJsonWrapper } from '../claude-presenter.js';
 import { createCodexStreamJsonWrapper } from '../codex-presenter.js';
 import { createCursorStreamJsonWrapper } from '../cursor-presenter.js';

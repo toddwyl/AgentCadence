@@ -1,25 +1,21 @@
 import type {
-  Pipeline,
-  PipelineStep,
-  PipelineStage,
   PlanRequest,
   PlanResponse,
   PlanningPhase,
-  LLMConfig,
-  CLIProfile,
-  ToolType,
-  ExecutionMode,
-} from '../../shared/types.js';
-import { toolFromKeyword, DEFAULT_LLM_CONFIG } from '../../shared/types.js';
+} from '../../contracts/planner/plan.js';
+import type { ExecutionMode, Pipeline, PipelineStep, PipelineStage, ToolType } from '../../domain/pipeline.js';
+import type { CLIProfile, LLMConfig } from '../../domain/settings.js';
+import { toolFromKeyword } from '../../domain/pipeline.js';
+import { DEFAULT_LLM_CONFIG } from '../../domain/settings.js';
 import { CLIRunner, CLIError } from './cli-runner.js';
 import { v4 as uuidv4 } from 'uuid';
-import { buildToolArguments } from '../../shared/types.js';
+import { buildToolArguments } from '../../domain/pipeline.js';
 import {
   buildPipelineMarkdownFormatInstructions,
   buildPlannerRetryPrompt,
   extractPipelineMarkdownDocument,
   parseMarkdownToPlanResult,
-} from '../../shared/pipeline-markdown.js';
+} from '../../contracts/planner/pipeline-markdown.js';
 
 const MAX_PLANNER_ATTEMPTS = 3;
 

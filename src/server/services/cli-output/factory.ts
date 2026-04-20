@@ -1,4 +1,5 @@
-import type { AgentStreamUiEvent, ToolType } from '../../../shared/types.js';
+import type { AgentStreamUiEvent } from '../../../domain/run.js';
+import type { ToolType } from '../../../domain/pipeline.js';
 import {
   commandLineUsesClaudeStreamJson,
   createClaudeStreamJsonWrapper,

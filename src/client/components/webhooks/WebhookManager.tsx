@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import type { Webhook, WebhookRun, Pipeline } from '@shared/types';
+import type { Pipeline } from '../../../domain/pipeline.js';
+import type { Webhook, WebhookRun } from '../../../domain/triggers.js';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../store/app-store';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';

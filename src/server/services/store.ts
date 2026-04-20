@@ -4,22 +4,24 @@ import os from 'os';
 import type {
   Pipeline,
   PipelineTemplate,
+} from '../../domain/pipeline.js';
+import type {
   CLIProfile,
   LLMConfig,
   ExecutionNotificationSettings,
-  Schedule,
-  ScheduleRun,
-  Webhook,
-  WebhookRun,
-  PostAction,
-  PostActionBinding,
-  PostActionRun,
-} from '../../shared/types.js';
+} from '../../domain/settings.js';
 import {
   DEFAULT_CLI_PROFILE,
   DEFAULT_LLM_CONFIG,
   DEFAULT_NOTIFICATION_SETTINGS,
-} from '../../shared/types.js';
+} from '../../domain/settings.js';
+import type { Schedule, ScheduleRun } from '../../contracts/api/schedules.js';
+import type { Webhook, WebhookRun } from '../../contracts/api/webhooks.js';
+import type {
+  PostAction,
+  PostActionBinding,
+  PostActionRun,
+} from '../../contracts/api/post-actions.js';
 
 const DATA_DIR = path.join(os.homedir(), '.agentcadence');
 
