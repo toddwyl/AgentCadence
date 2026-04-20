@@ -1,9 +1,14 @@
 import { Router, type Request, type Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
-import type { Webhook, WebhookRun, CreateWebhookRequest, UpdateWebhookRequest } from '../../shared/types.js';
+import type {
+  Webhook,
+  WebhookRun,
+  CreateWebhookRequest,
+  UpdateWebhookRequest,
+} from '../../contracts/api/webhooks.js';
 import { loadWebhooks, saveWebhooks, loadWebhookRuns, saveWebhookRuns, loadPipelines } from '../services/store.js';
-import { runPipelineForTrigger } from '../services/pipeline-executor.js';
+import { runPipelineForTrigger } from '../services/app/execution-service.js';
 import { broadcast } from '../ws.js';
 
 const router = Router();

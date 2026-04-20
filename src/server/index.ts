@@ -13,6 +13,7 @@ import fsRoutes from './routes/fs.js';
 import scheduleRoutes from './routes/schedules.js';
 import webhookRoutes from './routes/webhooks.js';
 import postActionRoutes from './routes/post-actions.js';
+import historyRoutes from './routes/history.js';
 import { initWebSocket } from './ws.js';
 import { autoDetectAndSaveProfile } from './services/profile-autodetect.js';
 import { startAllSchedules } from './services/cron-scheduler.js';
@@ -34,6 +35,7 @@ app.use('/api/fs', fsRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/post-actions', postActionRoutes);
+app.use('/api/history', historyRoutes);
 
 const clientDist = path.resolve(__dirname, '../../dist/client');
 app.use(express.static(clientDist));
