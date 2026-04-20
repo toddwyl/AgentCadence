@@ -2,7 +2,22 @@
 
 ## Mandatory test gate: `scripts/harness.sh`
 
-**A change set is not considered to have passing tests until `scripts/harness.sh` completes successfully (exit code 0).**
+**Code-affecting changes are not considered to have passing tests until `scripts/harness.sh` completes successfully (exit code 0).**
+
+### When the harness gate is required
+
+Run `scripts/harness.sh` for any change that can affect runtime behavior, build output, server/client logic, CLI behavior, streaming behavior, dependency wiring, or test infrastructure.
+
+### When the harness gate is not required
+
+If the change is documentation-only and does not affect shipped code or tests, the harness gate may be skipped. This includes files such as:
+
+- `README.md`
+- `README.zh-CN.md`
+- `docs/**`
+- `AGENTS.md`
+
+If a documentation change also modifies code snippets, scripts, configuration, or executable examples in a way that should stay runnable, treat it as code-affecting and run the harness.
 
 This script:
 
@@ -31,6 +46,23 @@ HARNESS_HEADED=1 SKIP_BUILD=1 bash scripts/harness.sh
 ```bash
 npm run test:harness
 ```
+
+`npm run test:harness` is only a convenience alias for `bash scripts/harness.sh`. You do not need to run both; either one is sufficient.
+
+## Preferred development workflow
+
+For implementation work, prefer this order unless the task is small enough that the overhead would clearly outweigh the benefit:
+
+1. Create an isolated git worktree first.
+2. Execute work with subagent-driven development when tasks can be decomposed clearly.
+3. Follow TDD inside each implementation task: write the failing test first, verify the failure, then write the minimal code to pass.
+
+### Workflow expectations
+
+- Prefer isolated work on a non-main branch, ideally in a dedicated worktree.
+- Prefer subagent-driven execution for multi-step or decomposable work; use the main agent as coordinator/reviewer.
+- Prefer TDD for code changes and bug fixes; do not write production code before a failing test unless the user explicitly asks for an exception.
+- For documentation-only changes, keep the process lightweight and skip harness unless the docs change executable behavior or verification expectations.
 
 ### Notes
 
